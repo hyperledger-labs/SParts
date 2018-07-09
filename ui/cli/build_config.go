@@ -19,6 +19,23 @@ package main
  * OR CONDITIONS OF ANY KIND, either express or implied.
  */
 
+const _LOCAL_CONFIG_FILE_CONTENT = `look_up: false
+part_uuid: tbd
+node:
+  ledger_address:
+  conductor_address:
+public_key:
+private_key:
+supply_chain: zephyr
+supplier_uuid:
+`
+
+const _GLOBAL_CONFIG_FILE_CONTENT = `atlas: localhost:3075
+user:
+	email:
+	name:
+`
+
 const (
 	_VERSION            = "0.8"
 	_DB_Model           = "0.8" // sqlite db data model
@@ -34,17 +51,9 @@ const (
 
 //Runtime options
 const (
-	_DEBUG_DISPLAY_ON = false
+	_DEBUG_DISPLAY_ON  = false
+	_DEBUG_REST_API_ON = false
 )
-
-const _LOCAL_CONFIG_FILE_CONTENT = `supply_chain: /zephyr
-supplier_uuid: dde3e600-cd79-4ee5-464e-e74e1ce764bb
-part_uuid: TBD
-look_up: false
-node:
-    ledger_address: 147.11.176.111:818
-    conductor_address: 10.37.133.106:811
-`
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
 const (
@@ -66,13 +75,36 @@ const (
 
 // Common value strings
 const (
-	_NONE         = "NONE"
-	_NULL_PART    = "tbd"
-	_ALIAS_TOKEN  = "id="
-	_ALISA_LENGTH = 15
+	_ALIAS_LENGTH  = 15
+	_ALIAS_TOKEN   = "id="
+	_ENVELOPE_TYPE = "envelope"
+	_LEDGER        = "ledger"
+	_ATLAS         = "atlas"
+	_NONE          = "NONE"
+	_NULL_PART     = "tbd"
+)
+
+// API constants
+const (
+	_LISTOF_LEDGER_NODE          = "ListOf:LedgerNodeRecord"
+	_ATLAS_LIST_LEDGER_NODES_API = "/atlas/api/v1/ledgerlist/"
 )
 
 // Limits
 const (
 	_MAX_FILE_WARNING_COUNT = 49 // Give warning If an envelope is created with greater then max value # files
+)
+
+// rest_api.go variables
+const (
+	// Atlas directory look up
+	_ATLAS_PING_API = "/atlas/api/v1/ping"
+
+	// Ledger
+	_ARTIFACTS_API         = "/ledger/api/v1/artifacts"
+	_LEDGER_PING_API       = "/ledger/api/v1/ping"
+	_PARTS_API             = "/ledger/api/v1/parts"
+	_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/supplier"
+	_SUPPLIERS_API         = "/ledger/api/v1/suppliers"
+	_ARTIFACTS_URI_API     = "/ledger/api/v1/artifacts/uri"
 )

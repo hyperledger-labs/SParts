@@ -24,7 +24,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	//"log"
@@ -34,17 +33,6 @@ import (
 	//"os/user"
 	"strings"
 )
-
-type PartRecord struct {
-	Name        string `json:"name"`                  // Fullname
-	Version     string `json:"version,omitempty"`     // Version if exists.
-	Label       string `json:"label,omitempty"`       // 1-5 alphanumeric characters (unique)
-	Licensing   string `json:"licensing,omitempty"`   // License expression
-	Description string `json:"description,omitempty"` // Part description (1-3 sentences)
-	Checksum    string `json:"checksum,omitempty"`    // License expression
-	UUID        string `json:"uuid"`                  // UUID provide w/previous registration
-	URI         string `json:"src_uri,omitempty"`     //
-}
 
 type PartSupplierRecord struct {
 	PartUUID     string `json:"part_uuid"`     // Part uuid
@@ -56,18 +44,17 @@ type PartArtifactRecord struct {
 	ArtifactUUID string `json:"envelope_uuid"` // Suppler uuid
 }
 
-func displayParts(partsList []Part) {
+func displayParts(partsList []PartItemRecord) {
 	if len(partsList) == 0 {
 		// empty list
 		return
 	}
-	fmt.Println("  Parts: ")
-
+	////fmt.Println("  Parts: ")
 	for k := range partsList {
-		part, err := getPart(partsList[k].PartId)
+		part, err := getPartInfo(partsList[k].PartUUID)
 		if err != nil {
 			// error retrieving part
-			fmt.Println("Could not retrieve part for uuid=", partsList[k].PartId)
+			fmt.Println("Could not retrieve part for uuid=", partsList[k].PartUUID)
 			continue // skip to next part.
 		}
 		fmt.Println()
@@ -81,83 +68,78 @@ func displayParts(partsList []Part) {
 		fmt.Println("    Name: \t " + part.Name)
 		fmt.Println("    Version: \t " + part.Version)
 		fmt.Println("    UUID: \t " + part.UUID)
-
-		chuckSize := 70
-		urlStr := strings.Join(chunkString(part.URI, chuckSize), "\n                 ")
-		fmt.Println("    Url: \t " + urlStr)
-
 		// Format the descriptions greater
-		chuckSize = 60
+		chuckSize := 60
 		for len(part.Description) > chuckSize && part.Description[chuckSize] != ' ' {
 			chuckSize++
 		}
 		chuckSize++
 		descriptionStr := strings.Join(chunkString(part.Description, chuckSize), "\n                 ")
 		fmt.Println("    Description: " + descriptionStr)
+		fmt.Println()
 	}
 
 }
 
 // Create part on ledger
 func createPart(name string, version string, label string, licensing string,
-	description string, url string, checksum string, uuid string) string {
+	description string, url string, checksum string, uuid string) (bool, error) {
+
 	var part PartRecord
 
 	part.Name = name
 	part.Version = version
+	part.Alias = label
 	part.Label = label
 	part.Licensing = licensing
-	part.URI = url
+	//part.URI = url
 	part.Description = description
 	part.Checksum = checksum
 	part.UUID = uuid
 
-	// convert part data to bytes
-	partAsBytes, err := json.Marshal(part)
+	var requestRecord PartAddRecord
+	requestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+	requestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+	if requestRecord.PrivateKey == "" || requestRecord.PublicKey == "" {
+		return false, fmt.Errorf("Private and/or Public key(s) are not set \n Use 'sparts config' to set keys")
+	}
+	requestRecord.Part = part
+
+	var replyRecord ReplyType
+	err := sendPostRequest(_PARTS_API, requestRecord, replyRecord)
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
-		return ""
+		return false, err
 	}
 
-	//fmt.Println (string(supplierAsBytes))
-	requestURL := "http://" + getLocalConfigValue(_LEDGER_ADDRESS_KEY) + "/api/sparts/ledger/parts"
-	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(partAsBytes))
-	if err != nil {
-		fmt.Printf("Error: %s\n", err)
-		return ""
-	}
-	req.Header.Set("X-Custom-Header", "part value")
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("Error: %s\n", err)
-		return ""
-	}
-	defer resp.Body.Close()
-
-	//fmt.Println("response Status:", resp.Status)
-	//fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("Create Part: response Body:", string(body))
-	//  {"status":"success"}
-	if strings.Contains(string(body), "success") {
-		return part.UUID
-	} else {
-		return ""
-	}
+	return true, nil
 }
 
-func createPartSupplierRelationship(part_uuid string, supplier_uuid string) bool {
-	var part_supplier_info PartSupplierRecord
+func createPartSupplierRelationship(part_uuid string, supplier_uuid string) (bool, error) {
+	var requestRecord PartToSupplierRecord
+	var partSupplierItem PartSupplierPair
 
-	part_supplier_info.PartUUID = part_uuid
-	part_supplier_info.SupplierUUID = supplier_uuid
+	partSupplierItem.PartUUID = part_uuid
+	partSupplierItem.SupplierUUID = supplier_uuid
 
+	requestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+	requestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+	if requestRecord.PrivateKey == "" || requestRecord.PublicKey == "" {
+		return false, fmt.Errorf("Private and/or Public key(s) are not set \n Use 'sparts config' to set keys")
+	}
+	requestRecord.Relation = partSupplierItem
+
+	var replyRecord ReplyType
+	err := sendPostRequest(_PARTS_TO_SUPPLIER_API, requestRecord, replyRecord)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+
+	/******
 	partSupplierAsBytes, err := json.Marshal(part_supplier_info)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
-		return false
+		return false, false
 	}
 
 	//fmt.Println (string(supplierAsBytes))
@@ -165,7 +147,7 @@ func createPartSupplierRelationship(part_uuid string, supplier_uuid string) bool
 	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(partSupplierAsBytes))
 	if err != nil {
 		fmt.Printf("Error: %s", err)
-		return false
+		return false, false
 	}
 	req.Header.Set("X-Custom-Header", "PartToSupplier")
 	req.Header.Set("Content-Type", "application/json")
@@ -173,7 +155,7 @@ func createPartSupplierRelationship(part_uuid string, supplier_uuid string) bool
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
-		return false
+		return false, false
 	}
 
 	// Read response.
@@ -181,15 +163,16 @@ func createPartSupplierRelationship(part_uuid string, supplier_uuid string) bool
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
-		return false
+		return false, false
 	}
 	fmt.Println("PartToSupplier: response Body:", string(body))
 	//  {"status":"success"}
 	if strings.Contains(string(body), "success") {
-		return true
+		return false, true
 	} else {
-		return false
+		return false, false
 	}
+	****/
 }
 
 func createPartArtifactRelationship(part_uuid string, artifact_uuid string) bool {
@@ -237,35 +220,51 @@ func createPartArtifactRelationship(part_uuid string, artifact_uuid string) bool
 	}
 }
 
-func getPart(uuid string) (PartRecord, error) {
+func getPartInfo(uuid string) (PartRecord, error) {
 	var part PartRecord
-
-	var err error = nil
-
-	part.Name = ""
-	part.UUID = ""
-
+	////part.Name = ""
+	////part.UUID = ""
 	//check that uuid is valid.
 	if !isValidUUID(uuid) {
-		err := errors.New(fmt.Sprintf("'%s' UUID is not in a valid format", uuid))
-		return part, err
+		return part, fmt.Errorf("'%s' UUID is not in a valid format", uuid)
 	}
+
+	// WORK AROUND - ledger returning wrong format:
 	replyAsBytes, err := httpGetAPIRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY),
-		"/api/sparts/ledger/parts/"+uuid)
+		_PARTS_API+"/"+uuid)
 
 	err = json.Unmarshal(replyAsBytes, &part)
 	if err != nil {
 		if _DEBUG_DISPLAY_ON {
 			displayErrorMsg(err.Error())
 		}
-		return part, errors.New(fmt.Sprintf("Ledger response may not be properly formatted"))
+		if _DEBUG_REST_API_ON {
+			fmt.Printf("\n%s\n", replyAsBytes)
+		}
+		return part, fmt.Errorf("Ledger response may not be properly formatted")
 	}
 
-	// Check if supplier exists
-	if part.UUID != uuid {
-		return part, errors.New(fmt.Sprintf("Part not found in ledger with uuid = '%s'", uuid))
+	/*******
+	// WORK AROUND - This is what it SHOULD BE
+	err := sendGetRequest(_PARTS_API+"/"+uuid, &part)
+	if err != nil {
+		// error occurred - return err
+		return part, err
 	}
-	//fmt.Printf ("Name = %s\t UUID= %s\t Descrip = %s\n", part.Name, part.UUID, part.Description)
-	return part, nil
+	*****/
+	/*********
+		// TODO: do we need to check returned uuid is same?
+		if part.UUID != uuid {
+			return part, errors.New(fmt.Sprintf("Part not found in ledger with uuid = '%s'", uuid))
+		}
+		return part, nil
+	}
+	*****/
+	return part, err
+}
 
+func getPartList() ([]PartRecord, error) {
+	var partList = []PartRecord{}
+	err := sendGetRequest(_PARTS_API, &partList)
+	return partList, err
 }

@@ -36,47 +36,64 @@ import (
 	"text/tabwriter"
 )
 
-type SupplierRecord struct {
-	UUID    string `json:"uuid"`             // UUID provide w/previous registration
-	Name    string `json:"name"`             // Fullname
-	ShortId string `json:"short_id"`         // 1-5 alphanumeric characters (unique)
-	Passwd  string `json:"passwd,omitempty"` // RUNNING, DOWN, NOT RESPONDING
-	Url     string `json:"url,omitempty"`    // 2-3 sentence description
-}
+func getSupplierList() ([]SupplierRecord, error) {
 
-type Part struct {
-	PartId string `json:"part_id"`
-}
+	var supplierList = []SupplierRecord{}
+	err := sendGetRequest(_SUPPLIERS_API, &supplierList)
+	return supplierList, err
 
-type SupplierWithParts struct {
-	UUID    string `json:"uuid"`               // UUID provide w/previous registration
-	Name    string `json:"name"`               // Fullname
-	ShortId string `json:"short_id,omitempty"` // 1-5 alphanumeric characters (unique)
-	Passwd  string `json:"passwd,omitempty"`   // RUNNING, DOWN, NOT RESPONDING
-	Url     string `json:"url,omitempty"`      // 2-3 sentence description
-	Parts   []Part
-}
+	//err := getReponse(_ORGS_API, &s)
 
-func getSupplierList() (supplierList []SupplierRecord, err error) {
-
+	/*****
 	replyAsBytes, err := httpGetAPIRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY),
-		"/api/sparts/ledger/suppliers")
+		_ORGS_API)
+	//replyAsBytes, err := httpGetAPIRequest("147.11.201.217:3075", "/ledger/api/v1/suppliers")
 	if err != nil {
 		if _DEBUG_DISPLAY_ON {
 			displayErrorMsg(err.Error())
 		}
-		return nil, errors.New(fmt.Sprintf("Ledger may not be accessible."))
+		return nil, fmt.Errorf("Ledger may not be accessible.")
 	}
 
-	err = json.Unmarshal(replyAsBytes, &supplierList)
+	var objmap map[string]*json.RawMessage
+	err = json.Unmarshal(replyAsBytes, &objmap)
 	if err != nil {
+		here(1, err)
+		return supplierList, nil
+	}
+	var resultType string
+	err = json.Unmarshal(*objmap["result_type"], &resultType)
+	if err != nil {
+		here(2, err)
+		return supplierList, nil
+	}
+
+	if resultType != "ListOf:SupplierRecord" {
+		return nil, fmt.Errorf("Ledger response type is not valid")
+	}
+
+	err = json.Unmarshal(*objmap["result"], &supplierList)
+	if err != nil {
+		here(3, err)
 		if _DEBUG_DISPLAY_ON {
 			displayErrorMsg(err.Error())
 		}
-		return nil, errors.New(fmt.Sprintf("Ledger response may not be properly formatted"))
+		return nil, fmt.Errorf("Ledger response may not be properly formatted")
 	}
 
-	return supplierList, nil
+	/***
+		var record ReplyTypeB
+
+		err = json.Unmarshal(replyAsBytes, &record)
+		if err != nil {
+			if _DEBUG_DISPLAY_ON {
+				displayErrorMsg(err.Error())
+			}
+			return nil, errors.New(fmt.Sprintf("Ledger response may not be properly formatted"))
+		}
+	***/
+
+	///return record.Result, nil
 }
 
 func displaySupplierList() {
@@ -125,16 +142,20 @@ func displaySupplierList() {
 }
 
 // supplier.UUID == "" if error.
-func getSupplierInfo(uuid string) (supplier SupplierWithParts, err error) {
+func getSupplierInfo(uuid string) (SupplierRecord, error) {
+
+	var supplier SupplierRecord
 
 	supplier.UUID = "" // set in case there is an error later
-
 	if !isValidUUID(uuid) {
-		return supplier, errors.New(fmt.Sprintf("Supplier UUID is not in a valid format: %s", uuid))
+		return supplier, fmt.Errorf("Supplier UUID is not in a valid format: %s", uuid)
 	}
 
+	// err := getReponse(_SUPPLIER_RECORD_API+uuid, &supplier)
+	// return supplier, err
+
 	replyAsBytes, err := httpGetAPIRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY),
-		"/api/sparts/ledger/suppliers/"+uuid)
+		_SUPPLIERS_API+"/"+uuid)
 	if err != nil {
 		if _DEBUG_DISPLAY_ON {
 			displayErrorMsg(err.Error())
@@ -153,7 +174,7 @@ func getSupplierInfo(uuid string) (supplier SupplierWithParts, err error) {
 
 	// Check if supplier exists. UUID should of been set in the json.Unmarshal call
 	if supplier.UUID != uuid {
-		return supplier, errors.New(fmt.Sprintf("Supplier not found with uuid = '%s'", uuid))
+		return supplier, fmt.Errorf("Supplier not found with uuid = '%s'", uuid)
 	}
 	return supplier, nil
 }
@@ -175,7 +196,7 @@ func displaySupplier(uuid string) {
 	fmt.Println("  -----------------------------------------------")
 	fmt.Printf("  Name   : %s%s%s\n", _CYAN_FG, supplier.Name, _COLOR_END)
 	fmt.Println("  -----------------------------------------------")
-	fmt.Println("  Label  :", supplier.ShortId)
+	fmt.Println("  Label  :", supplier.Alias)
 	fmt.Println("  UUID   :", supplier.UUID)
 	fmt.Println("  Alias  :", alias)
 	fmt.Println("  URL    :", supplier.Url)
@@ -198,8 +219,7 @@ func createSupplier(name string, shortID string, uuid string, passwd string, url
 		supplier.UUID = getUUID()
 	}
 	supplier.Name = name
-	supplier.ShortId = shortID
-	supplier.Passwd = passwd
+	supplier.Alias = shortID
 	supplier.Url = url
 
 	supplierAsBytes, err := json.Marshal(supplier)

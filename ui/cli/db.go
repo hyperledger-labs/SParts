@@ -99,14 +99,12 @@ func createDBTables() {
 		Id INTEGER PRIMARY KEY AUTOINCREMENT,
 		UUID TEXT,
 		Name TEXT,
-		Short_Id TEXT,	
+		Alias TEXT,	
 		Label TEXT,
 		Checksum TEXT,
-		URI TEXT,
 		Path TEXT,
 		OpenChain TEXT,
-		Type TEXT,
-		Local_Path TEXT,
+		ContentType TEXT,
 		InsertedDatetime DATETIME
 	);
 	`
@@ -155,24 +153,22 @@ func AddArtifactToDB(record ArtifactRecord) {
 	INSERT OR REPLACE INTO Artifacts (
 		UUID,
 		Name,
-		Short_Id,
+		Alias,
 		Label,
 		Checksum,
-		URI,
 		Path,
-		Type,
+		ContentType,
 		OpenChain,
-		Local_Path,
 		InsertedDatetime
-		) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+		) values(?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
 
 	stmt, err := theDB.Prepare(sql_additem)
 	defer stmt.Close()
 	if err != nil {
 		panic(err)
 	}
-	_, err2 := stmt.Exec(record.UUID, record.Name, record.ShortId, record.Label, record.Checksum,
-		record.URI, record.Path, record.Type, record.OpenChain, record.EnvelopePath)
+	_, err2 := stmt.Exec(record.UUID, record.Name, record.Alias, record.Label, record.Checksum,
+		record._path, record.ContentType, record.OpenChain)
 	if err2 != nil {
 		fmt.Println(err2)
 	}
@@ -193,7 +189,7 @@ func deleteArtifactFromDB(record ArtifactRecord) bool {
 		fmt.Println(err)
 		return false
 	}
-	_, err2 := stmt.Exec(record.Id)
+	_, err2 := stmt.Exec(record._ID)
 	if err2 != nil {
 		fmt.Println(err2)
 		return false
@@ -211,7 +207,7 @@ func getArtifactListDB() ([]ArtifactRecord, error) {
 
 	openDB()
 	defer theDB.Close()
-	rows, err := theDB.Query("SELECT ID, UUID, Name, Short_Id, Label, Checksum, URI, Path, OpenChain, Type, Local_Path FROM Artifacts")
+	rows, err := theDB.Query("SELECT ID, UUID, Name, Alias, Label, Checksum, Path, OpenChain, ContentType FROM Artifacts")
 
 	if err != nil {
 		//fmt.Println("error:", err)
@@ -219,8 +215,8 @@ func getArtifactListDB() ([]ArtifactRecord, error) {
 	}
 
 	for rows.Next() {
-		err = rows.Scan(&record.Id, &record.UUID, &record.Name, &record.ShortId, &record.Label, &record.Checksum, &record.URI, &record.Path,
-			&record.OpenChain, &record.Type, &record.EnvelopePath)
+		err = rows.Scan(&record._ID, &record.UUID, &record.Name, &record.Alias, &record.Label, &record.Checksum,
+			&record._path, &record.OpenChain, &record.ContentType)
 		if err != nil {
 			fmt.Println("error:", err)
 			break
@@ -241,7 +237,7 @@ func getArtifactFromDB(field string, value string) ArtifactRecord {
 
 	switch strings.ToLower(field) {
 	case "id":
-		query_str = fmt.Sprintf("SELECT ID, UUID, Name, Short_Id, Label, Checksum, URI, Path, OpenChain, Type, Local_Path FROM Artifacts WHERE ID=%s", value)
+		query_str = fmt.Sprintf("SELECT ID, UUID, Name, Alias, Label, Checksum, Path, OpenChain, ContentType FROM Artifacts WHERE ID=%s", value)
 
 	case "checksum":
 		//
@@ -254,9 +250,8 @@ func getArtifactFromDB(field string, value string) ArtifactRecord {
 	rows, err := theDB.Query(query_str)
 	checkErr(err)
 	for rows.Next() {
-		err = rows.Scan(&record.Id, &record.UUID, &record.Name, &record.ShortId, &record.Label,
-			&record.Checksum, &record.URI, &record.Path, &record.OpenChain,
-			&record.Type, &record.EnvelopePath)
+		err = rows.Scan(&record._ID, &record.UUID, &record.Name, &record.Alias, &record.Label,
+			&record.Checksum, &record._path, &record.OpenChain, &record.ContentType)
 		checkErr(err)
 	}
 	rows.Close() //good habit to close
@@ -514,7 +509,7 @@ func AddSupplierToDB(s Supplier_struct) {
 		UUID, 
 		Name, 
 		SKU_Symbol, 
-		Short_Id, 
+		Alias, 
 		Passwd, 
 		Type, 
 		Url, 

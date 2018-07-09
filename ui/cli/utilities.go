@@ -64,6 +64,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -113,13 +114,6 @@ func getAbridgedFilePath(fullpath string) (abridedPath string) {
 		systemDir = strings.Replace(systemDir, `\`, `/`, -1)
 		count++
 		path = strings.TrimPrefix(path, systemDir)
-
-		/****
-		fmt.Println("systemDir: ", systemDir)
-		fmt.Println("systemDir len: ", len(systemDir))
-		fmt.Println("count: ", count)
-		fmt.Println("path: ", path)
-		****/
 	}
 	if count == 1 {
 		path = "." + path
@@ -184,6 +178,14 @@ func isHidden(filename string) bool {
 	} else {
 		return false
 	}
+}
+
+func isPathURL(path string) bool {
+	path = strings.ToLower(path)
+	if strings.Contains(path, "http") {
+		return true
+	}
+	return false
 }
 
 // Obtain the file count for a directory (and sub directory)
@@ -379,6 +381,18 @@ func getSpartsDirectory() (directory string, err error) {
 		// Clean up string on Windows replace '\' with '/'
 		spartsDir = strings.Replace(spartsDir, `\`, `/`, -1)
 		return spartsDir, nil
+	}
+}
+
+func getType(object interface{}) string {
+
+	// types have a "main." prefix. We need to remove it
+	goType := strings.Replace(reflect.TypeOf(object).String(), "main.", "", 1)
+
+	if strings.Contains(goType, "[]") {
+		return strings.Replace(goType, "[]", "ListOf:", 1)
+	} else {
+		return goType
 	}
 }
 

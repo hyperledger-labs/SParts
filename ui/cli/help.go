@@ -59,9 +59,11 @@ Ledger Actions
   part     - Perform supplier operations
 
 For more details about each command use the --help option.
-e.g., 
+For example: 
   sparts add --help
   sparts part --help
+  sparts supplier --help
+  sparts about
 `
 
 const _ABOUT_SPARTS_HELP = `
@@ -95,6 +97,14 @@ Examples:
    sparts alias ibm 8879f843-bd68-4ebd-6cee-3e7fe91e3bcd /* company uuid */
 
    sparts alias debian-14.1.1 0f3d2681-1272-4aaa-7dea-658942dcecfe /* part uuid */
+`
+
+const _ARTIFACT_HELP_CONTENT = `usage: sparts artifact [--part <uuid>] <art1> <art2> ... <artN>
+Examples:
+   sparts artifact --add busybox1.24.2.spdx  // does not assign to part
+   sparts 
+   sparts artifact --add --part id=zephyr1.12 zephyr1.12.spdx 
+   sparts artifact --add --part id=zephyr1.12 notices.txt zephyr1.12.tar.gz
 `
 
 // compare --help
@@ -176,7 +186,8 @@ const _PART_HELP_CONTENT = `usage: sparts part [<options>]
     e.g., 
       sparts part --set uuid=5f2a332b-2283-4af4-79ca-6cf50af88273
       sparts part --set uuid=none
-
+      sparts part --list        // list my supplier parts
+      sparts part --list --all  // list all the parts on ledger
 `
 
 const _REMOVE_HELP_CONTENT = `

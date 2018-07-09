@@ -34,32 +34,10 @@ import (
 	"strings"
 )
 
-type ArtfactItem struct {
-	UUID      string `json:"uuid"` // UUID provide w/previous registration
-	Timestamp string `json:"timestamp,omitempty"`
-}
-
-type ArtifactRecord struct {
-	Id           int           `json:"id,omitempty"`           // Database Id
-	UUID         string        `json:"uuid"`                   // UUID provide w/previous registration
-	Name         string        `json:"filename"`               // File name
-	ShortId      string        `json:"short_id,omitempty"`     // 1-5 alphanumeric characters (unique)
-	Label        string        `json:"label,omitempty"`        // Display name
-	Checksum     string        `json:"checksum"`               // <host_address:port> in  http://<host_address:port>
-	URI          string        `json:"uri,omitempty"`          // Universal Resource Identifier
-	Path         string        `json:"path,omitempty"`         // Path within Envelope
-	OpenChain    string        `json:"openchain,omitempty"`    // True if aritfact was prepared under an OpenChain program
-	Type         string        `json:"content_type,omitempty"` // Source, notices, data, spdx, envelope, other
-	EnvelopePath string        `json:"local_path,omitempty"`   // Local directory path
-	Timestamp    string        `json:"timestamp,omitempty"`    // Timestamp in UTC format
-	SubArtifact  []ArtfactItem `json:"sub_artifact,omitempty"` // Timestamp in UTC format
-	_verified    bool          `json:"_verified,omitempty"`    // boolean used to compare to artifact lists. Not sent to ledger
-}
-
-type Envelope struct {
-	Artifacts []ArtifactRecord `json:"artifacts"` // Artifact list
-}
-
+// createEnvelopeChecksum generates the checksum for an envelope.
+// The input is a list of artifacts where the first artifact is the
+// top level envelope. Other artifacts may also represent an envelope
+// but they would be nested envelopes.
 func createEnvelopeChecksum(artifactList []ArtifactRecord) string {
 
 	//TODO: sort checksums
@@ -75,8 +53,60 @@ func createEnvelopeChecksum(artifactList []ArtifactRecord) string {
 	return sha
 }
 
+// postArtifactToLedger adds an artifact to the ledger.
+// Return is true if successful, false otherwise.
+// error will indicate the error encountered. It does not display
+// error messages to the terminal.
+func postArtifactToLedger(artifact ArtifactRecord) (bool, error) {
+	var replyRecord ReplyType
+	var requestRecord ArtifactAddRecord
+
+	// Check uuid
+	if !isValidUUID(artifact.UUID) {
+		return false, fmt.Errorf("UUID '%s' is not in a valid format", artifact.UUID)
+	}
+
+	// TODO: Check for most important fields are filled in
+
+	// Initialize post record.
+	requestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+	requestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+	requestRecord.Artifact = artifact
+
+	// Send artifact post request to ledger
+	err := sendPostRequest(_ARTIFACTS_API, requestRecord, replyRecord)
+	if err != nil {
+		return false, err
+	}
+
+	// See if any uris to add
+	if len(artifact.URIList) == 0 {
+		return true, nil
+	}
+
+	const _ARTIFACT_SUCCESS = "Artifact added successfully\n"
+	var errorString = _ARTIFACT_SUCCESS
+	var uriRequestRecord URIAddRecord
+	for _, uri := range artifact.URIList {
+		uriRequestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+		uriRequestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+		uriRequestRecord.UUID = artifact.UUID
+		uriRequestRecord.URI = uri
+		err := sendPostRequest(_ARTIFACTS_URI_API, requestRecord, replyRecord)
+		if err != nil {
+			errorString += fmt.Sprintf("problem with adding uri %s to artifact\n", uri.Location)
+		}
+	}
+
+	if errorString == _ARTIFACT_SUCCESS {
+		return true, nil
+	} else {
+		return false, fmt.Errorf("%s", errorString)
+	}
+}
+
 func postEnvelopeToledger(artifacts []ArtifactRecord) bool {
-	envelope := Envelope{Artifacts: artifacts}
+	envelope := artifacts
 
 	envelopeAsBytes, err := json.Marshal(envelope)
 	if err != nil {
@@ -117,10 +147,13 @@ func postEnvelopeToledger(artifacts []ArtifactRecord) bool {
 	}
 }
 
+// getPartArtifacts accepts a part uuid and returns a list of artifact records
+// for the part. The func does not display error messages - they are returned to
+// the calling routine.
 func getPartArtifacts(part_uuid string) ([]ArtifactRecord, error) {
 	//check that uuid is valid.
 	if !isValidUUID(part_uuid) {
-		return nil, errors.New(fmt.Sprintf("UUID '%s' is not in a valid format", part_uuid))
+		return nil, fmt.Errorf("UUID '%s' is not in a valid format", part_uuid)
 	}
 
 	replyAsBytes, err := httpGetAPIRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY),
@@ -140,10 +173,13 @@ func getPartArtifacts(part_uuid string) ([]ArtifactRecord, error) {
 		}
 		return nil, errors.New(fmt.Sprintf("Ledger response may not be properly formatted"))
 	}
-
 	return artifactList, nil
 }
 
+// createEnvelopeFromDirectory generates a list of artifacts for the files
+// contained within a designate directory. Func returns a list of artifact records
+// where the first represents the top level envelope and the remainining artifact
+// artifact records represent each of files in the directory (and sub directory)
 func createEnvelopeFromDirectory(directory string) ([]ArtifactRecord, error) {
 
 	//var anyError error = nil
@@ -157,16 +193,15 @@ func createEnvelopeFromDirectory(directory string) ([]ArtifactRecord, error) {
 	if extension != ".env" {
 		envelope.Name = envelope.Name + ".env"
 	}
-	envelope.Type = "this"
-	envelope.Path = "/"
-	envelope.URI = "/"
+	envelope.ContentType = _ENVELOPE_TYPE
 	envelope.UUID = getUUID()
 	envelope.Label = envelope.Name
-	envelope.ShortId = envelope.Name
+	envelope.Alias = envelope.Name
 	envelope.OpenChain = "false"
+	envelope.URIList = []URIRecord{} // initalize it the empty list
 	// add envelope to artifact list
 	artifacts = append(artifacts, envelope)
-	// Compute envelope index for use later on - typically it should be 0
+	//Compute envelope index for use later on - typically it should be 0
 	envelopeIndex := len(artifacts) - 1
 
 	// Let's traverse the directory collecting up all the files as artifacts.
@@ -188,41 +223,75 @@ func createEnvelopeFromDirectory(directory string) ([]ArtifactRecord, error) {
 			//create artifact record
 			a := ArtifactRecord{}
 
-			a.Path, a.Name, _, a.Type = FilenameDirectorySplit(path)
-			a.Path = strings.Replace(a.Path, `\`, `/`, -1)
+			a._path, a.Name, _, a.ContentType = FilenameDirectorySplit(path)
+			a._path = strings.Replace(a._path, `\`, `/`, -1)
 			// replace envelope name is '.' - e.g.,  env1/dir1/file1 -> ./dir1/file1
-			a.Path = strings.Replace(a.Path, envelopeName, ``, 1)
-			a.URI = "envelope://" + a.Path
+			a._path = strings.Replace(a._path, envelopeName, ``, 1)
+			//a.path =   "envelope://" + a.Path
 			a.UUID = getUUID()
-			//a.UUID = "b17e649e-86f0-4542-639d-0488e7ac0ec9"
 			a.Label = a.Name
-			a.ShortId = a.Name
+			a.Alias = a.Name
 			////checksum, _ := getFileSHA1(path)
 			a.Checksum, _ = getFileSHA1(path)
 			a.OpenChain = "false"
+			a.URIList = []URIRecord{} // initalize it the empty list
 			artifacts = append(artifacts, a)
 		}
 		return nil
 	}) // end of filepath.Walk
 
 	// Compute the envelope checksum which is a function of it's artifact checksums
+	/////envelope.Checksum = createEnvelopeChecksum(artifacts)
 	artifacts[envelopeIndex].Checksum = createEnvelopeChecksum(artifacts)
-	// completed processing directory
 
+	// Create envelope artifact list
+	artifactItemList := []ArtifactItem{}
+	for i, artifact := range artifacts {
+		// Don't include the envelope to the artifact list.
+		if i == envelopeIndex ||
+			artifacts[envelopeIndex].UUID == artifact.UUID {
+			continue
+		}
+		var item ArtifactItem
+		item.UUID = artifact.UUID
+		item.Path = artifact._path
+		artifactItemList = append(artifactItemList, item)
+	}
+
+	artifacts[envelopeIndex].ArtifactList = artifactItemList
 	return artifacts, nil
 }
 
-func saveEnvelope(artifactsAsJSON string) {
-	fmt.Println(" saveEnvelope - Not Implemented")
-}
-
+// getArtifactFileType determines the artifact type of a file based on the
+// files extension. For example, extension ".c" returns type "source".
+// Return types are: "binary/audio", binary/executable", "binary/image",
+//    "binary/video", "document", "data", "source", "other"
 func getArtifactFileType(file string) string {
 	_, _, _, extension := FilenameDirectorySplit(file)
 
 	switch strings.ToLower(extension) {
-	case ".c":
+	case ".aac", ".aiff", ".alac", ".flac", ".mp3", ".pcm", ".wav", ".wma":
+		return "binary/audio"
+	case ".exe", ".jar", ".lib", ".scr", ".so":
+		return "binary/executable"
+	case ".gif", ".ico", ".jpg", ".jpeg", ".png", ".ttf":
+		return "binary/image"
+	case ".acc", ".avi", ".flv", ".mov", ".mpg", ".mp2", ".mpeg", ".mpe", ".mpv", ".mp4", ".m4p",
+		".oca", ".ogg", ".wmv":
+		return "binary/video"
+	case ".doc", ".html", ".jnl", ".md", ".pdf", ".ps", ".txt":
+		return "document"
+	case ".db", ".conf", ".config", ".log":
+		return "data"
+	case ".asm", ".asp", ".awk", ".bat", ".c", ".class", ".cmd", ".cpp", ".cxx",
+		".def", ".dll", ".dpc", ".dpj", ".dtd", ".dump", ".font",
+		".h", ".hdl", ".hpp", ".hrc", ".hxx", ".idl", ".inc", ".ini",
+		".java", ".js", ".jsp", ".l", ".pl", ".perl", ".pm", ".pmk", ".r", ".rc",
+		".res", "rpm", ".s", "sbl", ".sh", ".src", ".tar", ".url", ".y", "yxx":
+		return "source"
+	case ".bz2", ".gz", ".tgz", ".xz", ".zip":
 		return "source"
 	default:
-		return "tbd"
+		return "other"
 	}
 }
