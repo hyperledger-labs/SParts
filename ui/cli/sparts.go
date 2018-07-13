@@ -22,14 +22,19 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/sha1"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/google/go-github/github"
+	"golang.org/x/oauth2"
 )
 
 // Global
@@ -88,6 +93,8 @@ func main() {
 		addRequest()
 	case "alias":
 		aliasRequest()
+	case "artifact":
+		artifactRequest()
 	case "config":
 		configRequest()
 	case "compare":
@@ -114,6 +121,8 @@ func main() {
 		statusRequest()
 	case "supplier":
 		supplierRequest()
+	case "synch":
+		synchRequest()
 	case "test":
 		testRequest()
 	case "version":
@@ -199,26 +208,18 @@ func addRequest() {
 
 			// Clean up string on Windows platform replace '\' with '/'
 			fullpath = strings.Replace(fullpath, `\`, `/`, -1)
-			uri = _NONE
 
 		} // else end - file artifact
 
 		// ------------ For all artifacts -----------------
 		titleStr := fmt.Sprintf("For artifact '%s':", artifact_arg)
-		//fmt.Printf (" For artifact '%s' :", artifact_arg)
 		lineStr := createLine(titleStr)
-		//fmt.Printf(" %s\n", lineStr)
 		fmt.Printf(" %s\n", titleStr)
 		fmt.Printf(" %s\n", lineStr)
-		//////fmt.Printf ("----------------\n")
 		atype := ""
 		for atype == "" {
 
 			fmt.Println(" Enter artifact type selection (1)-(6):")
-			/****
-			fmt.Println (" (1)source		(2) notices 	(3) envelope")
-			fmt.Println (" (4)spdx		(5) other")
-			****/
 			fmt.Printf("   1) Source\n   2) notices\n   3) envelope\n   4) spdx\n   5) data\n   6) Other\n   7) [skip artifact] \n")
 
 			fmt.Print(" > ")
@@ -250,7 +251,16 @@ func addRequest() {
 			continue
 		}
 
-		path := getAbridgedFilePath(fullpath)
+		// We want to shorten the local path - e.g., /C/Users/mitch/cmd/notices.pdf to ./notices.pdf
+		// First make sure we do not have a uri (fullpath == _NONE)
+		var path string
+		if fullpath == _NONE {
+			// We have a uri
+			path = uri
+			fullpath = uri
+		} else {
+			path = getAbridgedFilePath(fullpath)
+		}
 		fmt.Println()
 		fmt.Println("|--------------------------------------------------")
 		fmt.Printf("| %sArtifact%s: %s%s%s\n", _WHITE_FG, _COLOR_END, _CYAN_FG, path, _COLOR_END)
@@ -262,7 +272,7 @@ func addRequest() {
 		fmt.Fprintf(w, "\t %s\t %s\n", "Label", label)
 		fmt.Fprintf(w, "\t %s\t %s\n", "Type", atype)
 		fmt.Fprintf(w, "\t %s\t %s\n", "Checksum", checksum)
-		fmt.Fprintf(w, "\t %s\t %s\n", "URI", uri)
+		////fmt.Fprintf(w, "\t %s\t %s\n", "URI", uri)
 		fmt.Fprintf(w, "\t %s\t %s\n", "Full Path", fullpath)
 		fmt.Fprintf(w, "\n")
 		w.Flush()
@@ -270,20 +280,36 @@ func addRequest() {
 		var artifact ArtifactRecord
 		artifact.Name = name
 		artifact.UUID = uuid
-		artifact.ShortId = label
+		artifact.Alias = label
 		artifact.Label = label
 		artifact.Checksum = checksum
-		artifact.URI = uri
-		artifact.EnvelopePath = fullpath
 		artifact.OpenChain = "false"
-		artifact.Type = atype
+		artifact.ContentType = atype
+		artifact._path = fullpath
 
 		AddArtifactToDB(artifact)
 	}
 }
 
-func aliasRequest() {
+func artifactRequest() {
+	// if there are no other arguments display help.
+	if len(os.Args[1:]) == 1 {
+		fmt.Println(_ARTIFACT_HELP_CONTENT)
+		return
+	}
+	switch strings.ToLower(os.Args[2]) {
+	case "--add", "-a":
 
+	case "--help", "-help", "-h":
+		// Display help
+		fmt.Println(_ARTIFACT_HELP_CONTENT)
+	default:
+		fmt.Printf("'%s' is not a valid argument for the '%s %s' command\n", os.Args[2], filepath.Base(os.Args[0]), os.Args[1])
+	}
+}
+
+// handle: 'sparts alias' command
+func aliasRequest() {
 	// if there are no other arguments display help.
 	if len(os.Args[1:]) == 1 {
 		fmt.Println(_ALIAS_HELP_CONTENT)
@@ -313,14 +339,14 @@ func aliasRequest() {
 			return
 		}
 
-		if len(alias) <= _ALISA_LENGTH && r.MatchString(alias) {
+		if len(alias) <= _ALIAS_LENGTH && r.MatchString(alias) {
 			// the alias of proper length and is syntactically correct.
 			setAlias(alias, value)
 		} else {
 			// the alias is NOT syntactically correct.
 			displayErrorMsg(fmt.Sprintf("'%s' is not syntactically correct", os.Args[3]))
 			fmt.Println("Aliases must:")
-			fmt.Printf("  be %d characters or less in length; and\n", _ALISA_LENGTH)
+			fmt.Printf("  be %d characters or less in length; and\n", _ALIAS_LENGTH)
 			fmt.Println("  begin with an alphanumeric or '_' character;")
 			fmt.Println("  followed by a combination of alphanumeric, '_', or '.' characters.")
 		}
@@ -329,7 +355,7 @@ func aliasRequest() {
 	}
 }
 
-// config command
+// handle: 'sparts config' command
 func configRequest() {
 	// if there are no other arguments then display help.
 	if len(os.Args[1:]) == 1 {
@@ -409,8 +435,9 @@ func configRequest() {
 		switch os.Args[3] {
 		case "--list":
 			displayGlobalConfigData()
-		case "user.name",
-			"user.email":
+		case _ATLAS_ADDRESS_KEY,
+			_USER_NAME_KEY,
+			_USER_EMAIL_KEY:
 			setGlobalConfigValue(os.Args[3], os.Args[4])
 		default:
 			fmt.Printf("  '%s' is not a validate global configuration value\n", os.Args[3])
@@ -420,6 +447,7 @@ func configRequest() {
 	}
 }
 
+// handle: 'sparts compare' command
 func compareRequest() {
 	var artifactList1, artifactList2 []ArtifactRecord
 	var artifactName1, artifactName2 string = "111", "222"
@@ -537,11 +565,11 @@ func compareRequest() {
 	for i := 0; i < len(artifactList1); i++ {
 		for k := 0; k < len(artifactList2); k++ {
 			// check that it is not the envelope container
-			if artifactList1[i].Type == "this" || artifactList2[k].Type == "this" {
-				if artifactList1[i].Type == "this" {
+			if artifactList1[i].ContentType == "envelope" || artifactList2[k].ContentType == "envelope" {
+				if artifactList1[i].ContentType == _ENVELOPE_TYPE {
 					artifactList1[i]._verified = true
 				}
-				if artifactList2[k].Type == "this" {
+				if artifactList2[k].ContentType == _ENVELOPE_TYPE {
 					artifactList2[k]._verified = true
 				}
 				continue
@@ -641,7 +669,7 @@ func deleteRequest() {
 	fmt.Println("  delete request has been CANCELLED.")
 }
 
-// sparts dir command
+// handle: 'sparts dir' command
 func dirRequest() {
 	// the only possible option is --help
 	// Anything else we will also display the help contents
@@ -661,8 +689,8 @@ func dirRequest() {
 	fmt.Println("     ", spartsDir)
 
 	globalConfigFile, err := getGlobalConfigFile()
-	// Clean up string on Windows replace '\' with '/'
-	globalConfigFile = strings.Replace(globalConfigFile, `\`, `/`, -1)
+	//// Clean up string on Windows replace '\' with '/'
+	////globalConfigFile = strings.Replace(globalConfigFile, `\`, `/`, -1)
 	if globalConfigFile != "" {
 		fmt.Println("  sparts global config file:")
 		fmt.Println("     ", globalConfigFile)
@@ -671,7 +699,7 @@ func dirRequest() {
 	}
 }
 
-// sparts envelope
+// handle: 'sparts envelope' command
 func envelopeRequest() {
 	if len(os.Args[1:]) == 1 {
 		// No 'part' arguments
@@ -744,7 +772,7 @@ func envelopeRequest() {
 			}
 			fmt.Println(artifactsAsJSON)
 
-			partUUID := getLocalConfigValue("part_uuid")
+			partUUID := getLocalConfigValue(_PART_UUID_KEY)
 			alias, _ := getAliasUsingValue(partUUID)
 			if alias == "" {
 				alias = partUUID
@@ -785,6 +813,7 @@ func helpRequest() {
 	fmt.Println(_HELP_CONTENT)
 }
 
+// handle: 'sparts init' command
 func initRequest() {
 	var spartsDirectory string
 	var localConfigFile string
@@ -843,13 +872,13 @@ func initRequest() {
 	initializeDB()
 }
 
+// handle: 'sparts part' command
 func partRequest() {
 	if len(os.Args[1:]) == 1 {
 		// Display help
 		fmt.Println(_PART_HELP_CONTENT)
 		return
 	}
-	//fmt.Println ("num", len(os.Args[1:]))
 	switch os.Args[2] {
 	case "--create":
 		// Let's first see if the supplier uuid is set in the config file.
@@ -925,17 +954,20 @@ func partRequest() {
 		confirmation := strings.ToLower(scanner.Text())
 		if confirmation == "y" || confirmation == "yes" {
 			fmt.Println("submitting part info ....")
-			result := createPart(name, version, label, license, description, url, checksum, uuid)
+			ok, err := createPart(name, version, label, license, description, url, checksum, uuid)
 			//result := ""
-			if result == "" {
-				fmt.Println("Create part ledger api call FAILED.")
+
+			if ok == false || err != nil {
+				if checkAndReportError(err) {
+					return
+				}
 			} else {
 				// Part was successfully registered with the legder
 				// Create relationship between part and supplier.
-				result2 := createPartSupplierRelationship(uuid, supplierUUID)
-				if result2 == true {
+				ok, err := createPartSupplierRelationship(uuid, supplierUUID)
+				if ok == true {
 					fmt.Println("Create part on ledger was SUCCESSFUL.")
-					if getkeyboardYesNoReponse("Would like to create an alias for this part (y/n)?") {
+					if getkeyboardYesNoReponse("Would you like to create an alias for this part (y/n)?") {
 						alias := getkeyboardReponse("Enter the alias you would like to use?")
 						err := setAlias(alias, uuid)
 						if err != nil {
@@ -948,6 +980,9 @@ func partRequest() {
 					return
 				} else {
 					fmt.Println("Create part-to-suppiler relationship ledger api call FAILED.")
+					if _DEBUG_DISPLAY_ON {
+						fmt.Println(err)
+					}
 					return
 				}
 			}
@@ -964,7 +999,7 @@ func partRequest() {
 		if len(os.Args[3:]) == 0 {
 			// no other arguments (e.g., no uuid). Assume local config supplier uuid
 			// e.g., sparts part --get
-			partID = getLocalConfigValue("part_uuid")
+			partID = getLocalConfigValue(_PART_UUID_KEY)
 			if partID == _NULL_PART {
 				fmt.Println("Part uuid is not assigned in local config file. Try:")
 				fmt.Printf("  %s part --get uuid=<uuid>\n", filepath.Base(os.Args[0]))
@@ -989,7 +1024,7 @@ func partRequest() {
 
 		} // else
 		// part_id holds a properly formated uuid.
-		part, err = getPart(partID)
+		part, err = getPartInfo(partID)
 		if err != nil {
 			displayErrorMsg(err.Error())
 			return // we are done. exit func.
@@ -1001,21 +1036,22 @@ func partRequest() {
 			alias = ""
 		}
 		// Display part info
-		fmt.Println()
+		////fmt.Println()
 
 		//fmt.Printf ("  Part Info: %s%s%s\n",_GREEN_FG, alias, _COLOR_END)
 		fmt.Println("  -------------------------------------------------------------")
-		fmt.Println("  Part Name   :", part.Name)
+		fmt.Printf("  Part Name   : %s%s%s\n", _GREEN_FG, part.Name, _COLOR_END)
 		fmt.Println("  -------------------------------------------------------------")
 		if alias != "" {
-			fmt.Printf("  Alias (id=) : %s%s%s\n", _GREEN_FG, alias, _COLOR_END)
+			//fmt.Printf("  Alias (id=) : %s%s%s\n", _GREEN_FG, alias, _COLOR_END)
+			fmt.Printf("  Alias (id=) : %s\n", alias)
 		}
 		fmt.Println("  Version     :", part.Version)
 		fmt.Println("  Label       :", part.Label)
 		fmt.Println("  License     :", part.Licensing)
 		fmt.Println("  Checksum    :", part.Checksum)
 		fmt.Println("  UUID        :", part.UUID)
-		fmt.Println("  URI         :", part.URI)
+		//fmt.Println("  URI         :", part.URI)
 		fmt.Println("  Description : " + formatDisplayString(part.Description, 60))
 		fmt.Println("  -------------------------------------------------------------")
 
@@ -1023,13 +1059,39 @@ func partRequest() {
 		// Display help
 		fmt.Println(_PART_HELP_CONTENT)
 	case "--list", "-l":
-		if len(os.Args[2:]) > 1 && os.Args[3] == "--all" {
-			fmt.Println("  - Not Implemented Yet - list all parts in network")
+		if len(os.Args[2:]) > 1 && (os.Args[3] == "--all" || os.Args[3] == "-a") {
+			////if len(os.Args[3:]) == 0 {
+			partsList, err := getPartList()
+			if checkAndReportError(err) {
+				return
+			}
+			/////displayParts(partList)
+			partItemList := []PartItemRecord{}
+			var partItem PartItemRecord
+			for k := range partsList {
+				partItem.PartUUID = partsList[k].UUID
+				partItemList = append(partItemList, partItem)
+			}
+			displayParts(partItemList)
 		} else {
 			// displaySupplierParts()
 			fmt.Println("  - Not Implemented Yet - list my (supplier) parts")
+			fmt.Printf("  - try: '%s %s --list --all' to list all the parts registered with the ledger\n", filepath.Base(os.Args[0]), os.Args[1])
 		}
 	case "--set":
+		var uuid string
+		if len(os.Args[3:]) >= 1 {
+			uuid = strings.ToLower(os.Args[3])
+			if isValidUUID(uuid) || strings.ToLower(uuid) == strings.ToLower(_NULL_PART) {
+				// we are good.
+				setLocalConfigValue(_PART_UUID_KEY, uuid)
+				return // we are done.
+			}
+		}
+		// the uuid is not valid
+		fmt.Printf("'%s' is not a valid uuid\n", uuid)
+		return
+		/*******
 		var idStr []string
 		uuidStrValid := true // Intially assume true. Set to false once we learn not true.
 		// See if next argument uuid=xxx exists
@@ -1039,7 +1101,7 @@ func partRequest() {
 			if len(idStr) == 2 {
 				if isValidUUID(idStr[1]) || strings.ToLower(idStr[1]) == strings.ToLower(_NULL_PART) {
 					// we are good. idStr[1] holds the uuid.
-					setLocalConfigValue("part_uuid", strings.ToLower(idStr[1]))
+					setLocalConfigValue(_PART_UUID_KEY, strings.ToLower(idStr[1]))
 					return // we are done.
 				} else {
 					// uuid is not valid format.
@@ -1050,26 +1112,34 @@ func partRequest() {
 		// If we get this far then --set argument is not valid.
 		if uuidStrValid {
 			fmt.Printf("Format is not valid. Expecting: \n")
-			fmt.Printf("   %s --set uuid=<uuid>  /* <uuid> is the uuid to assign */\n", filepath.Base(os.Args[0]))
-			fmt.Printf("   %s --set uuid=%s     /* when you want to clear the value */.\n",
+			fmt.Printf("   %s --set uuid=<uuid>  \n", filepath.Base(os.Args[0]))
+			fmt.Printf("   %s --set uuid=%s    .\n",
 				filepath.Base(os.Args[0]), strings.ToLower(_NULL_PART))
 		} else {
 			fmt.Printf("UUID '%s' is not properly formatted\n", idStr[1])
 		}
+		****/
 	default:
 		fmt.Printf("%s: not a valid argument for %s\n", os.Args[2], os.Args[1])
 		fmt.Println(_PART_HELP_CONTENT)
 	}
 }
 
+// handle: 'sparts ping' command
 func pingRequest() {
-	if pingLedger() == "success" {
-		fmt.Println("  ledger is running")
+	//ok, err := pingServer(_ATLAS)
+	ok, err := pingServer(_LEDGER)
+	if err != nil {
+		fmt.Println(err)
+	}
+	if ok {
+		fmt.Println("ping was successful")
 	} else {
-		fmt.Println(" ledger is not responding")
+		fmt.Println("ping failed")
 	}
 }
 
+// handle: 'sparts remove' command
 func removeRequest() {
 	if len(os.Args[1:]) == 1 {
 		// Display help
@@ -1105,7 +1175,7 @@ func removeRequest() {
 	}
 }
 
-//sparts status
+// handle: 'sparts status' command
 func statusRequest() {
 	var id, name, path string
 
@@ -1120,7 +1190,12 @@ func statusRequest() {
 	fmt.Println("Network: ", supplychain)
 	////fmt.Println("Staged, waiting for commit:")
 
-	part_uuid := getLocalConfigValue("part_uuid")
+	part_uuid := getLocalConfigValue(_PART_UUID_KEY)
+	partAlias, err := getAliasUsingValue(part_uuid)
+	if partAlias != "" && err == nil {
+		part_uuid = partAlias + " = " + part_uuid
+	}
+
 	if part_uuid == _NULL_PART {
 		part_uuid = _RED_FG + part_uuid + _COLOR_END
 	} else {
@@ -1138,7 +1213,14 @@ func statusRequest() {
 	fmt.Println()
 	fmt.Println(" |---------------------------------------------------------------")
 	fmt.Println(" | ")
-	fmt.Println(" | part uuid:", part_uuid)
+	/******
+	partAlias, err := getAliasUsingValue(part_uuid)
+	fmt.Println("partAlias", partAlias)
+	if partAlias != "" && err == nil {
+		part_uuid = partAlias
+	}
+	*****/
+	fmt.Println(" | part :", part_uuid)
 	fmt.Println(" | ")
 	const padding = 1
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
@@ -1148,16 +1230,17 @@ func statusRequest() {
 	fmt.Fprintf(w, "\t%s\t%s\t %s\t %s\n", " ----", " ----------", "------", "------------------------")
 
 	for i := range artifacts {
-		id = strconv.Itoa(artifacts[i].Id)
+		id = strconv.Itoa(artifacts[i]._ID)
 		name = artifacts[i].Name
-		if artifacts[i].EnvelopePath == _NONE {
-			// path is a link
-			path = artifacts[i].URI
+		if isPathURL(artifacts[i]._path) {
+			// path is a url link
+			path = artifacts[i]._path
 		} else {
-			// Assume it is a file, path is a local path
-			path = getAbridgedFilePath(artifacts[i].EnvelopePath)
+			// It is a file, convert path relative to the .sparts working directory.
+			////fmt.Println("Path:", artifacts[i]._path)
+			path = getAbridgedFilePath(artifacts[i]._path)
 		}
-		fmt.Fprintf(w, "\t  %s\t %s\t %s\t %s\n", id, name, artifacts[i].Type, path)
+		fmt.Fprintf(w, "\t  %s\t %s\t %s\t %s\n", id, name, artifacts[i].ContentType, path)
 	}
 
 	//fmt.Fprintf(w, "\n")
@@ -1167,6 +1250,7 @@ func statusRequest() {
 	fmt.Println(" * File paths are relative to the sparts working directory.")
 }
 
+// handle: 'sparts supplier' command
 func supplierRequest() {
 	if len(os.Args[1:]) == 1 {
 		// Display help
@@ -1231,12 +1315,109 @@ func supplierRequest() {
 	}
 }
 
-// Temporary Used to initally test new commands. This will be removed.
-func testRequest() {
-	fmt.Println(" Not implemented")
+// handle: 'sparts synch' command
+func synchRequest() {
+
+	fmt.Println("  Network: ", getLocalConfigValue(_SUPPLY_CHAIN_NETWORK_KEY))
+	ok, err := pingServer(_LEDGER)
+	//ok, err := pingServer(_ATLAS)
+	//ok := false
+	if ok {
+		// things are good.
+		fmt.Println("  Current ledger node is ACTIVE at address:", getLocalConfigValue(_LEDGER_ADDRESS_KEY))
+		return // done.
+	}
+
+	// could not successful access the current ledger node. Proceed to check for other nodes.
+	fmt.Println("  Default ledger node is NOT ACTIVE:", getLocalConfigValue(_LEDGER_ADDRESS_KEY))
+	fmt.Println("  Searching for a new primary ledger node .....")
+
+	// Obtain current list of available ledger nodes from look up directory (atlas)
+	nodeList, err := getLedgerNodeList()
+	if err != nil {
+		fmt.Println(" ", err)
+		// Suggest a fix for certain circumstances
+		if strings.Contains(err.Error(), "does not exist") {
+			fmt.Printf("  You may need to set or update local config variable: '%s'\n", _SUPPLY_CHAIN_NETWORK_KEY)
+			fmt.Printf("  To view local and global variables try: %s config --list\n", filepath.Base(os.Args[0]))
+		}
+		return
+	}
+	// Check if list is empty
+	if len(nodeList) == 0 {
+		fmt.Printf("  The network '%s' has no ledger nodes registered\n", getLocalConfigValue(_SUPPLY_CHAIN_NETWORK_KEY))
+		return
+	}
+	newNodeFound := false
+	for _, node := range nodeList {
+		if newNodeFound {
+			break // from for loop.
+		}
+		//fmt.Println("  Checking node:", node.APIURL)
+		ok, err := pingServer(node.APIURL)
+		if err != nil {
+			//fmt.Println("   ", err)
+		}
+		if ok {
+			newNodeFound = true
+			setLocalConfigValue(_LEDGER_ADDRESS_KEY, node.APIURL)
+			fmt.Printf("  Found ACTIVE ledger node at: '%s'\n", node.APIURL)
+			fmt.Println("  UPDATING default ledger node in config to:", node.APIURL)
+		}
+	}
+	if newNodeFound == false {
+		fmt.Printf("  Not able to locate an active ledger node using the %s directory\n", _ATLAS)
+	}
 }
 
-// sparts version
+// Temporary Used to initally test new commands. This will be removed.
+func lfsRequest() {
+	//fmt.Println(" Not implemented")
+
+	for i := 1; i < 30; i++ {
+		fmt.Println(getUUID())
+	}
+	return
+
+	file := os.Args[2]
+	_, _, _, fileExtension := FilenameDirectorySplit(file)
+	sha1, _ := getFileSHA1(file)
+	fi, err := os.Stat(file)
+	if checkAndReportError(err) {
+		return
+	}
+	fileSize := strconv.FormatInt(fi.Size(), 10)
+	fileRepoPath := "_content/" + sha1 + "." + fileSize + fileExtension
+
+	//First we need to set up the authenticate token with the github server.
+	context := context.Background()
+	// get token from: https://github.com/settings/tokens/new
+	// and you need to enter it in the configuration file
+	tokenService := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: "e841f93ab39d5711e5ae48d917c82b041f0a63de"})
+	tokenClient := oauth2.NewClient(context, tokenService)
+	githubClient := github.NewClient(tokenClient)
+
+	///fileContent := []byte("This is the content of my file\nand the 2nd line of it")
+	fileBytes, err := ioutil.ReadFile(file)
+
+	// Note: the file needs to be absent from the repository as you are not
+	// specifying a SHA reference here.
+	opts := &github.RepositoryContentFileOptions{
+		Message:   github.String("This is my commit message"),
+		Content:   fileBytes,
+		Branch:    github.String("master"),
+		Committer: &github.CommitAuthor{Name: github.String("Mark"), Email: github.String("user@example.com")},
+	}
+	//_, _, err := githubClient.Repositories.CreateFile(context, "g-snoop", "zephyr-content", "content/README.md", opts)
+	_, _, err = githubClient.Repositories.CreateFile(context, "g-snoop", "zephyr-content", fileRepoPath, opts)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+// handle: 'sparts version' command
 func versionRequest() {
 	// if there are no other arguments display the version for sparts.
 	if len(os.Args[1:]) == 1 {
@@ -1257,8 +1438,12 @@ func versionRequest() {
 
 }
 
+// // handle: 'sparts seed' command
 func seedRequest() {
-
 	fmt.Println(" Not implemented")
+}
+
+// Used for special testing
+func testRequest() {
 
 }

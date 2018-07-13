@@ -36,49 +36,15 @@ import (
 	"text/tabwriter"
 )
 
-type SupplierRecord struct {
-	UUID    string `json:"uuid"`             // UUID provide w/previous registration
-	Name    string `json:"name"`             // Fullname
-	ShortId string `json:"short_id"`         // 1-5 alphanumeric characters (unique)
-	Passwd  string `json:"passwd,omitempty"` // RUNNING, DOWN, NOT RESPONDING
-	Url     string `json:"url,omitempty"`    // 2-3 sentence description
+func getSupplierList() ([]SupplierRecord, error) {
+
+	var supplierList = []SupplierRecord{}
+	err := sendGetRequest(_SUPPLIERS_API, &supplierList)
+	return supplierList, err
 }
 
-type Part struct {
-	PartId string `json:"part_id"`
-}
-
-type SupplierWithParts struct {
-	UUID    string `json:"uuid"`               // UUID provide w/previous registration
-	Name    string `json:"name"`               // Fullname
-	ShortId string `json:"short_id,omitempty"` // 1-5 alphanumeric characters (unique)
-	Passwd  string `json:"passwd,omitempty"`   // RUNNING, DOWN, NOT RESPONDING
-	Url     string `json:"url,omitempty"`      // 2-3 sentence description
-	Parts   []Part
-}
-
-func getSupplierList() (supplierList []SupplierRecord, err error) {
-
-	replyAsBytes, err := httpGetAPIRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY),
-		"/api/sparts/ledger/suppliers")
-	if err != nil {
-		if _DEBUG_DISPLAY_ON {
-			displayErrorMsg(err.Error())
-		}
-		return nil, errors.New(fmt.Sprintf("Ledger may not be accessible."))
-	}
-
-	err = json.Unmarshal(replyAsBytes, &supplierList)
-	if err != nil {
-		if _DEBUG_DISPLAY_ON {
-			displayErrorMsg(err.Error())
-		}
-		return nil, errors.New(fmt.Sprintf("Ledger response may not be properly formatted"))
-	}
-
-	return supplierList, nil
-}
-
+// displaySupplierList retrieves the supplier list and
+// prints the  list to the terminal.
 func displaySupplierList() {
 
 	var supplierList []SupplierRecord
@@ -124,17 +90,23 @@ func displaySupplierList() {
 	w.Flush()
 }
 
-// supplier.UUID == "" if error.
-func getSupplierInfo(uuid string) (supplier SupplierWithParts, err error) {
+// getSupplierInfo retirieve a single supplier record from the
+// ledger and prints it. 'uuid' is the id of the supplier.
+// supplier.UUID == "" if an error occurs.
+func getSupplierInfo(uuid string) (SupplierRecord, error) {
+
+	var supplier SupplierRecord
 
 	supplier.UUID = "" // set in case there is an error later
-
 	if !isValidUUID(uuid) {
-		return supplier, errors.New(fmt.Sprintf("Supplier UUID is not in a valid format: %s", uuid))
+		return supplier, fmt.Errorf("Supplier UUID is not in a valid format: %s", uuid)
 	}
 
+	// err := getReponse(_SUPPLIER_RECORD_API+uuid, &supplier)
+	// return supplier, err
+
 	replyAsBytes, err := httpGetAPIRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY),
-		"/api/sparts/ledger/suppliers/"+uuid)
+		_SUPPLIERS_API+"/"+uuid)
 	if err != nil {
 		if _DEBUG_DISPLAY_ON {
 			displayErrorMsg(err.Error())
@@ -153,11 +125,12 @@ func getSupplierInfo(uuid string) (supplier SupplierWithParts, err error) {
 
 	// Check if supplier exists. UUID should of been set in the json.Unmarshal call
 	if supplier.UUID != uuid {
-		return supplier, errors.New(fmt.Sprintf("Supplier not found with uuid = '%s'", uuid))
+		return supplier, fmt.Errorf("Supplier not found with uuid = '%s'", uuid)
 	}
 	return supplier, nil
 }
 
+// displaySupplier prints the supplier record.
 func displaySupplier(uuid string) {
 	supplier, err := getSupplierInfo(uuid)
 	if err != nil || supplier.UUID == "" {
@@ -175,7 +148,7 @@ func displaySupplier(uuid string) {
 	fmt.Println("  -----------------------------------------------")
 	fmt.Printf("  Name   : %s%s%s\n", _CYAN_FG, supplier.Name, _COLOR_END)
 	fmt.Println("  -----------------------------------------------")
-	fmt.Println("  Label  :", supplier.ShortId)
+	fmt.Println("  Label  :", supplier.Alias)
 	fmt.Println("  UUID   :", supplier.UUID)
 	fmt.Println("  Alias  :", alias)
 	fmt.Println("  URL    :", supplier.Url)
@@ -188,7 +161,8 @@ func displaySupplier(uuid string) {
 	}
 }
 
-// if uuid is "" then it will automatically be generated.
+// createSupplier create a supplier and adds it to the ledger.
+// if 'uuid' == "" then it will automatically be generated.
 func createSupplier(name string, shortID string, uuid string, passwd string, url string) string {
 	var supplier SupplierRecord
 
@@ -198,8 +172,7 @@ func createSupplier(name string, shortID string, uuid string, passwd string, url
 		supplier.UUID = getUUID()
 	}
 	supplier.Name = name
-	supplier.ShortId = shortID
-	supplier.Passwd = passwd
+	supplier.Alias = shortID
 	supplier.Url = url
 
 	supplierAsBytes, err := json.Marshal(supplier)
@@ -240,6 +213,8 @@ func createSupplier(name string, shortID string, uuid string, passwd string, url
 //----------------------------------------
 // Supplier Slice List Sorting
 //-----------------------------------------
+
+// This code sorts a list that is represented as a slice.
 
 // We use Go's sort slice functionn.
 // https://golang.org/pkg/sort/#Slice
