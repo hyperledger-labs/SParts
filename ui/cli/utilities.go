@@ -64,6 +64,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -113,13 +114,6 @@ func getAbridgedFilePath(fullpath string) (abridedPath string) {
 		systemDir = strings.Replace(systemDir, `\`, `/`, -1)
 		count++
 		path = strings.TrimPrefix(path, systemDir)
-
-		/****
-		fmt.Println("systemDir: ", systemDir)
-		fmt.Println("systemDir len: ", len(systemDir))
-		fmt.Println("count: ", count)
-		fmt.Println("path: ", path)
-		****/
 	}
 	if count == 1 {
 		path = "." + path
@@ -184,6 +178,16 @@ func isHidden(filename string) bool {
 	} else {
 		return false
 	}
+}
+
+// isPathURL determines if an artifact path is a URL as opposed to
+// a directory path. Returns 'true' if it is a URL, 'false' otherwise.
+func isPathURL(path string) bool {
+	path = strings.ToLower(path)
+	if strings.Contains(path, "http") {
+		return true
+	}
+	return false
 }
 
 // Obtain the file count for a directory (and sub directory)
@@ -382,6 +386,31 @@ func getSpartsDirectory() (directory string, err error) {
 	}
 }
 
+// generateURL generates a url api call. Typically an address will start with http://
+// but when it does not it needs to be added.
+func generateURL(address string, apiCall string) string {
+	if strings.Contains(strings.ToLower(address), strings.ToLower("http://")) ||
+		strings.Contains(strings.ToLower(address), strings.ToLower("https://")) {
+		// address already has http protocal in name (e.g, http://)
+		return address + apiCall
+	} else {
+		return "http://" + address + apiCall
+	}
+}
+
+// getType returns the type of a variable or record
+func getType(object interface{}) string {
+
+	// types have a "main." prefix. We need to remove it
+	goType := strings.Replace(reflect.TypeOf(object).String(), "main.", "", 1)
+
+	if strings.Contains(goType, "[]") {
+		return strings.Replace(goType, "[]", "ListOf:", 1)
+	} else {
+		return goType
+	}
+}
+
 // format a string for display such that no line is more than 'checkSize' long.
 func formatDisplayString(DisplayStr string, chuckSize int) string {
 
@@ -403,21 +432,6 @@ func createDirectory(directory string) {
 		}
 	}
 }
-
-/****
-func createFile (file string) {
-    f, err := os.Create(file)
-    check(err)
-    if err != nil {
-        panic(err)
-    }
-    defer f.Close()
-    err := f.Write("This is a YAML file")
-    if err != nil {
-        panic(err)
-    }
-}
-*****/
 
 // Obtian the path to the sparts local config file
 func getLocalConfigFile() string {

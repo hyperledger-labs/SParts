@@ -2,11 +2,7 @@
 
 ### Overview
 
-The SParts Command Line interface (cli) is the command line tool to interface with the ledger. It has a similar look and feel to git. For example you can list out the suppliers, create new software parts and associate artifacts with existing parts
-
-
-
-Enter the following to get a list of available commands
+The SParts Command Line interface (cli) is the command line tool to interface with the ledger. For example you can list out the suppliers, create new software parts and associate artifacts with existing parts. It was designed to have a similar look, feel  and behavior as the git command line interface. Enter the following to get a list of available commands
 
 ```
 sparts --help
@@ -30,7 +26,7 @@ Examples of some of the more common commands include:
   
   sparts part --create 				// create a new part for the default supplier
 ```
-### Building
+### To Build
 
 You will need to install the following third party components:
 

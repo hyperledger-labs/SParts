@@ -1,7 +1,7 @@
 package main
 
 /*
-	This file contains build configuration parameters for the sparts cli.
+	This file contains compiler build configuration parameters for the sparts cli.
 */
 
 /*
@@ -19,6 +19,32 @@ package main
  * OR CONDITIONS OF ANY KIND, either express or implied.
  */
 
+//Runtime debug flags
+const (
+	_DEBUG_DISPLAY_ON  = false
+	_DEBUG_REST_API_ON = false
+)
+
+// This is the default settings fot the local configuration
+const _LOCAL_CONFIG_FILE_CONTENT = `look_up: false
+part_uuid: tbd
+node:
+  ledger_address:
+  conductor_address:
+public_key:
+private_key:
+ledger_network: zephyr
+supplier_uuid:
+`
+
+// This is the default settings fot the global configuration
+const _GLOBAL_CONFIG_FILE_CONTENT = `
+atlas_address: https://spartshub.org
+user:
+	email:
+	name:
+`
+
 const (
 	_VERSION            = "0.8"
 	_DB_Model           = "0.8" // sqlite db data model
@@ -32,20 +58,7 @@ const (
 	_TOOL_NAME        = "sparts"
 )
 
-//Runtime options
-const (
-	_DEBUG_DISPLAY_ON = false
-)
-
-const _LOCAL_CONFIG_FILE_CONTENT = `supply_chain: /zephyr
-supplier_uuid: dde3e600-cd79-4ee5-464e-e74e1ce764bb
-part_uuid: TBD
-look_up: false
-node:
-    ledger_address: 147.11.176.111:818
-    conductor_address: 10.37.133.106:811
-`
-
+// Const values to display color to a terminal screen
 // https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
 const (
 	_CYAN_FG   = "\x1b[36;1m"
@@ -58,21 +71,38 @@ const (
 
 // Error codes
 const (
-	_INITIALIZE_ERROR        = 1
-	_DIR_ACCESS_ERROR        = 2
-	_DB_ACCESSS_ERROR        = 3
-	_DB_TABLE_CREATION_ERROR = 4
+	_INITIALIZE_ERROR = 1
+	_DIR_ACCESS_ERROR = 2
+	_DB_ACCESSS_ERROR = 3
 )
 
-// Common value strings
+// Misc  values
 const (
-	_NONE         = "NONE"
-	_NULL_PART    = "tbd"
-	_ALIAS_TOKEN  = "id="
-	_ALISA_LENGTH = 15
+	_ALIAS_LENGTH  = 15
+	_ALIAS_TOKEN   = "id="
+	_ENVELOPE_TYPE = "envelope"
+	_LEDGER        = "ledger"
+	_ATLAS         = "atlas"
+	_NONE          = "NONE"
+	_NULL_PART     = "tbd"
 )
 
 // Limits
 const (
 	_MAX_FILE_WARNING_COUNT = 49 // Give warning If an envelope is created with greater then max value # files
+)
+
+// rest_api.go variables
+const (
+	// Atlas (spartshub.org) directory look up
+	_ATLAS_PING_API              = "/atlas/api/v1/ping"
+	_ATLAS_LIST_LEDGER_NODES_API = "/atlas/api/v1/network_node_list/"
+
+	// Ledger
+	_ARTIFACTS_API         = "/ledger/api/v1/artifacts"
+	_LEDGER_PING_API       = "/ledger/api/v1/ping"
+	_PARTS_API             = "/ledger/api/v1/parts"
+	_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/supplier"
+	_SUPPLIERS_API         = "/ledger/api/v1/suppliers"
+	_ARTIFACTS_URI_API     = "/ledger/api/v1/artifacts/uri"
 )
