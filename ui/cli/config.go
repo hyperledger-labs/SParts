@@ -36,8 +36,10 @@ import (
 // Note: struct fields must be public in order for unmarshal to
 // correctly populate the data.
 type localConfig struct {
-	LookUp string `json:"lookup"`
-	Node   struct {
+	LookUp       string `json:"lookup"`
+	EnvelopeUUID string `json:"envelope_uuid"`
+	Focus        string `json:"focus"`
+	Node         struct {
 		LedgerAddress    string `json:"ledger_address"`
 		ConductorAddress string `json:"conductor_address"`
 	} `json:"node"`
@@ -53,12 +55,15 @@ type localConfig struct {
 
 // local config file field names
 const (
-	_CONDUCTOR_ADDRESS_KEY    = "node.conductor_address"
-	_LEDGER_ADDRESS_KEY       = "node.ledger_address"
-	_PART_UUID_KEY            = "part_uuid"
-	_SUPPLY_CHAIN_NETWORK_KEY = "ledger_network"
-	_PRIVATE_KEY              = "private_key"
-	_PUBLIC_KEY               = "public_key"
+	_CONDUCTOR_ADDRESS_KEY = "node.conductor_address"
+	_ENVELOPE_KEY          = "envelope_uuid"
+	_FOCUS_KEY             = "focus"
+	_LEDGER_ADDRESS_KEY    = "node.ledger_address"
+	_LEDGER_NETWORK_KEY    = "ledger_network"
+	_SUPPLIER_KEY          = "supplier_uuid"
+	_PART_KEY              = "part_uuid"
+	_PRIVATE_KEY           = "private_key"
+	_PUBLIC_KEY            = "public_key"
 )
 
 // global Config file format
@@ -106,10 +111,13 @@ func getLocalConfigValue(key string) string {
 	switch strings.ToLower(key) {
 	case "node.ledger_address":
 		return configData.Node.LedgerAddress
-
+	case _ENVELOPE_KEY:
+		return configData.EnvelopeUUID
+	case _FOCUS_KEY:
+		return configData.Focus
 	case "node.conductor_address":
 		return configData.Node.ConductorAddress
-	case "part_uuid":
+	case _PART_KEY:
 		return configData.PartUUID
 	case _PRIVATE_KEY:
 		return configData.PrivateKey
@@ -127,12 +135,12 @@ func getLocalConfigValue(key string) string {
 
 // setLocalConfigValue assigns the value of a local config variable.
 // The variable identified by key is set to newValue
-func setLocalConfigValue(key string, newValue string) {
+func setLocalConfigValue(key string, newValue string) error {
 	// Read config file
 	spartsDir, err := getSpartsDirectory()
 	if err != nil {
-		fmt.Println(err)
-		return
+		//fmt.Println(err)
+		return err
 	}
 	configFile := spartsDir + "/" + _LOCAL_CONFIG_FILE
 	configData, err := readLocalConfig(configFile)
@@ -140,7 +148,7 @@ func setLocalConfigValue(key string, newValue string) {
 	if err != nil {
 		// Error reading config file
 		fmt.Println(err)
-		return
+		return err
 	}
 	switch strings.ToLower(key) {
 	case "node.ledger_address":
@@ -149,41 +157,44 @@ func setLocalConfigValue(key string, newValue string) {
 		configData.Node.ConductorAddress = newValue
 	case "ledger_network":
 		configData.LedgerNetwork = newValue
-	case "part_uuid":
+	case _ENVELOPE_KEY:
+		configData.EnvelopeUUID = newValue
+	case _FOCUS_KEY:
+		configData.Focus = newValue
+	case _PART_KEY:
 		if isValidUUID(newValue) || strings.ToLower(newValue) == strings.ToLower(_NULL_PART) {
 			configData.PartUUID = newValue
 		} else {
-			fmt.Println("  UUID syntax is not valid.")
-			fmt.Println("  The updated value was not saved.")
-			return // done due to error.
+			return fmt.Errorf("UUID syntax is not valid.")
 		}
 	case _PRIVATE_KEY:
 		configData.PrivateKey = newValue
 	case _PUBLIC_KEY:
 		configData.PublicKey = newValue
-	case "supplier_uuid":
+	case _SUPPLIER_KEY:
 		if isValidUUID(newValue) {
 			configData.SupplierUUID = newValue
 		} else {
-			fmt.Println("  UUID syntax is not valid.")
-			fmt.Println("  The updated value was not saved.")
-			return // done due to error.
+			return fmt.Errorf("UUID syntax is not valid.")
 		}
 	case "lookup":
 		configData.LookUp = newValue
 	default:
-		fmt.Printf("  '%s' is not a validate local configuration value\n", key)
+		return fmt.Errorf("  '%s' is not a validate local configuration value\n", key)
 	}
+
 	// Save updated config values
 	d, err := yaml.Marshal(&configData)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	err = ioutil.WriteFile(configFile, d, 0644)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	//fmt.Printf("--- t dump:\n%s\n\n", string(d))
+
+	return nil
 }
 
 // readLocalConfig reads in the contents of the local config file

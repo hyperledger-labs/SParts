@@ -26,6 +26,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -55,6 +56,7 @@ func main() {
 	//If an error detected then there is no valid sparts directory.
 	if err != nil && strings.ToLower(os.Args[1]) != "init" {
 		fmt.Println("  error: Not in a sparts working directory (or any of the parent directories)")
+		fmt.Printf("  tip: use '%s init' to create %s working directory\n", filepath.Base(os.Args[0]), filepath.Base(os.Args[0]))
 		os.Exit(_DIR_ACCESS_ERROR)
 	}
 
@@ -105,6 +107,8 @@ func main() {
 		dirRequest()
 	case "envelope":
 		envelopeRequest()
+	case "focus":
+		focusRequest()
 	case "help", "-help", "-h", "--help":
 		helpRequest()
 	case "init":
@@ -143,12 +147,15 @@ func addRequest() {
 	}
 	// At least one additional argument. Prepare to iterate through args
 	// each representing an artifact
-	scanner := bufio.NewScanner(os.Stdin)
+	/////scanner := bufio.NewScanner(os.Stdin)
+	openChain := _FALSE
+	var artifact ArtifactRecord
+	var err error
 	for i := 2; i < len(os.Args); i++ {
-		artifact_arg := os.Args[i]
+		artifactArg := os.Args[i]
 
 		// Check if "help" is the second argument.
-		switch strings.ToLower(artifact_arg) {
+		switch strings.ToLower(artifactArg) {
 		case "--help", "-help", "-h":
 			if i == 2 {
 				// --help, -h is the second argument. Print the help text
@@ -156,139 +163,102 @@ func addRequest() {
 				return // we are done
 			}
 			continue // if --help, -h comes after second argument then ignore it
-		}
-		var name, label, checksum, uri, fullpath string
-		var err error
-		fmt.Println()
-		// Generate UUID
-		uuid := getUUID()
-
-		// See if a uri or local file
-		if strings.Contains(artifact_arg, "uri=") {
-			// this is a link (uri) and not a local file
-			// uri=http://github.com/abc
-			splitStr := strings.Split(artifact_arg, "=")
-			uri = splitStr[1]
-			name = filepath.Base(uri)
-			label = name
-			fullpath = _NONE
-			checksum = _NONE
-			fmt.Println("uri:", uri)
-		} else {
-			// assume artifact is a local file
-			fullpath, err = filepath.Abs(artifact_arg)
-			if err != nil {
-				displayErrorMsg(fmt.Sprintf("Could not locate full path for %s", artifact_arg))
-				continue // process next Arg
+		case "--url", "-u":
+			// We only allow one link argument per line.
+			// if number of remaining arguments is 2 OR
+			// if --openchain present AND remaining arguments therefore must be 3
+			if len(os.Args[2:]) == 2 || (openChain == _TRUE && len(os.Args[2:]) == 3) {
+				////fmt.Println("have a link - not implemented yet")
+				theURL := os.Args[3]
+				// process link
+				_, err := url.Parse(theURL)
+				if err != nil {
+					fmt.Printf("	error:  %s%s%s - invalid link syntax\n", _RED_FG, theURL, _COLOR_END)
+					return
+				}
+				artifact = ArtifactRecord{}
+				_, name, _, _ := FilenameDirectorySplit(theURL)
+				if strings.HasPrefix(theURL, "https") {
+					artifact.Name = "https://.../" + name
+				} else {
+					artifact.Name = "http://.../" + name
+				}
+				artifact.UUID = getUUID()
+				artifact.Alias = name
+				artifact.Label = name
+				artifact.ContentType = "url"
+				artifact.Checksum, _ = getStringSHA1(theURL)
+				artifact.URIList = []URIRecord{} // initalize to the empty list
+				artifact._path = theURL
+				artifact.OpenChain = _FALSE
+				if openChain == _TRUE {
+					artifact.OpenChain = _TRUE
+				}
+				// Add to database
+				err = addArtifactToDB(artifact)
+				if err != nil {
+					fmt.Printf("	error:  %s%s%s\n", _RED_FG, theURL, _COLOR_END)
+				} else {
+					fmt.Printf("	adding: %s%s%s\n", _GREEN_FG, theURL, _COLOR_END)
+				}
+				return
 			}
-			// See if a directory
-			if stat, err := os.Stat(fullpath); err == nil && stat.IsDir() {
-				messageStr := fmt.Sprintf("%s :is a directory", artifact_arg)
-				lineStr := createLine(messageStr)
-				fmt.Printf(" %s\n", lineStr)
-				fmt.Printf(" %s\n", messageStr)
-				fmt.Printf(" %s\n", lineStr)
-				fmt.Printf(" %s\n", "Directory will be skipped")
-				continue // process next Arg
+			// else more than one argument. Set flag and proceed to process all the files
+			openChain = _TRUE
+			continue
+		case "--openchain", "-oc":
+			// If --openchain is the only argument, we need to
+			// assign all the artifacts in staging area to be OpenChain.
+			// If there additional argumnets just set the openchain flag to true/yes
+
+			/************
+			// First see if this is the only argument
+			//if len(os.Args[2:]) == 2 && os.Args[3] == "-all" {
+			if len(os.Args[2:]) == 1 {
+				fmt.Println("Only OpenChain")
+				// if more than 5 non-openchain ask - do you want to sent them all ?
+				// set all
+				artifacts, err := getArtifactListDB()
+				if err != nil {
+					displayErrorMsg("sparts working database not accessible.")
+					return
+				}
+				for _, artifact := range artifacts {
+					fmt.Println(artifact.Name, artifact.OpenChain)
+					if artifact.OpenChain == _FALSE {
+						artifact.OpenChain = _TRUE
+						addArtifactToDB(artifact)
+					}
+				}
+				return
 			}
-
-			if _, err := os.Stat(fullpath); os.IsNotExist(err) {
-				// path/to/whatever does not exist
-				displayErrorMsg(fmt.Sprintf("%s: No such file or directory", os.Args[i]))
-				continue // process next Args
-			}
-
-			checksum, err = getFileSHA1(fullpath)
-			if err != nil {
-				fmt.Println("Error computing SHA1 for", fullpath)
-				continue // process next Args
-			}
-
-			_, name, label, _ = FilenameDirectorySplit(fullpath)
-
-			// Clean up string on Windows platform replace '\' with '/'
-			fullpath = strings.Replace(fullpath, `\`, `/`, -1)
-
-		} // else end - file artifact
-
-		// ------------ For all artifacts -----------------
-		titleStr := fmt.Sprintf("For artifact '%s':", artifact_arg)
-		lineStr := createLine(titleStr)
-		fmt.Printf(" %s\n", titleStr)
-		fmt.Printf(" %s\n", lineStr)
-		atype := ""
-		for atype == "" {
-
-			fmt.Println(" Enter artifact type selection (1)-(6):")
-			fmt.Printf("   1) Source\n   2) notices\n   3) envelope\n   4) spdx\n   5) data\n   6) Other\n   7) [skip artifact] \n")
-
-			fmt.Print(" > ")
-			scanner.Scan()
-			atype = scanner.Text()
-			switch strings.ToLower(atype) {
-			case "1", "source":
-				atype = "source"
-			case "2", "notices":
-				atype = "notices"
-			case "3", "envelope":
-				atype = "envelope"
-			case "4", "spdx":
-				atype = "spdx"
-			case "5", "data":
-				atype = "data"
-			case "6", "other":
-				atype = "other"
-			case "7", "skip":
-				atype = "7"
-				break
-			default:
-				fmt.Printf("  '%s' is not a valid repsonse\n\n", atype)
-				atype = ""
-			}
-		}
-		if atype == "7" {
-			//skip this artifact
+			****************/
+			// else more than one argument. Set flag and proceed to process all the files
+			openChain = _TRUE
 			continue
 		}
 
-		// We want to shorten the local path - e.g., /C/Users/mitch/cmd/notices.pdf to ./notices.pdf
-		// First make sure we do not have a uri (fullpath == _NONE)
-		var path string
-		if fullpath == _NONE {
-			// We have a uri
-			path = uri
-			fullpath = uri
-		} else {
-			path = getAbridgedFilePath(fullpath)
+		// if directory - create list and insert
+
+		// if single file - create single Artifact record
+
+		artifact, err = createArtifactFromFile(artifactArg)
+		if err != nil {
+			fmt.Printf("	error:  %s%s%s - %s\n", _RED_FG, artifactArg, _COLOR_END, err)
+			continue // go process next artifact
 		}
-		fmt.Println()
-		fmt.Println("|--------------------------------------------------")
-		fmt.Printf("| %sArtifact%s: %s%s%s\n", _WHITE_FG, _COLOR_END, _CYAN_FG, path, _COLOR_END)
-		const padding = 0
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, '.', tabwriter.Debug)
-		fmt.Fprintf(w, "\t%s\t%s\n", " -----------", "-------------------------------------")
-		fmt.Fprintf(w, "\t %s\t %s\n", "Name", name)
-		fmt.Fprintf(w, "\t %s\t %s\n", "UUID", uuid)
-		fmt.Fprintf(w, "\t %s\t %s\n", "Label", label)
-		fmt.Fprintf(w, "\t %s\t %s\n", "Type", atype)
-		fmt.Fprintf(w, "\t %s\t %s\n", "Checksum", checksum)
-		////fmt.Fprintf(w, "\t %s\t %s\n", "URI", uri)
-		fmt.Fprintf(w, "\t %s\t %s\n", "Full Path", fullpath)
-		fmt.Fprintf(w, "\n")
-		w.Flush()
-
-		var artifact ArtifactRecord
-		artifact.Name = name
-		artifact.UUID = uuid
-		artifact.Alias = label
-		artifact.Label = label
-		artifact.Checksum = checksum
-		artifact.OpenChain = "false"
-		artifact.ContentType = atype
-		artifact._path = fullpath
-
-		AddArtifactToDB(artifact)
-	}
+		if openChain == _TRUE {
+			artifact.OpenChain = _TRUE
+		}
+		// Add to database
+		err = addArtifactToDB(artifact)
+		if err != nil {
+			fmt.Printf("	error:  %s%s%s\n", _RED_FG, artifactArg, _COLOR_END)
+		} else {
+			fmt.Printf("	adding: %s%s%s\n", _GREEN_FG, artifactArg, _COLOR_END)
+		}
+		// Go process next artifact (if any remaining)
+	} // For loop
 }
 
 func artifactRequest() {
@@ -699,6 +669,24 @@ func dirRequest() {
 	}
 }
 
+func focusRequest() {
+	if len(os.Args[1:]) == 1 || len(os.Args[1:]) > 2 {
+		// No arguments. Expecting: part, envelope, both, none. Display help
+		fmt.Println(_FOCUS_HELP_CONTENT)
+		return
+	}
+	switch strings.ToLower(os.Args[2]) {
+	case "--both":
+		setLocalConfigValue(_FOCUS_KEY, _BOTH_FOCUS)
+	case "--envelope":
+		setLocalConfigValue(_FOCUS_KEY, _ENVELOPE_FOCUS)
+	case "--none":
+		setLocalConfigValue(_FOCUS_KEY, _NO_FOCUS)
+	case "--part", "-p":
+		setLocalConfigValue(_FOCUS_KEY, _PART_FOCUS)
+	}
+}
+
 // handle: 'sparts envelope' command
 func envelopeRequest() {
 	if len(os.Args[1:]) == 1 {
@@ -772,7 +760,7 @@ func envelopeRequest() {
 			}
 			fmt.Println(artifactsAsJSON)
 
-			partUUID := getLocalConfigValue(_PART_UUID_KEY)
+			partUUID := getLocalConfigValue(_PART_KEY)
 			alias, _ := getAliasUsingValue(partUUID)
 			if alias == "" {
 				alias = partUUID
@@ -999,7 +987,7 @@ func partRequest() {
 		if len(os.Args[3:]) == 0 {
 			// no other arguments (e.g., no uuid). Assume local config supplier uuid
 			// e.g., sparts part --get
-			partID = getLocalConfigValue(_PART_UUID_KEY)
+			partID = getLocalConfigValue(_PART_KEY)
 			if partID == _NULL_PART {
 				fmt.Println("Part uuid is not assigned in local config file. Try:")
 				fmt.Printf("  %s part --get uuid=<uuid>\n", filepath.Base(os.Args[0]))
@@ -1084,7 +1072,7 @@ func partRequest() {
 			uuid = strings.ToLower(os.Args[3])
 			if isValidUUID(uuid) || strings.ToLower(uuid) == strings.ToLower(_NULL_PART) {
 				// we are good.
-				setLocalConfigValue(_PART_UUID_KEY, uuid)
+				setLocalConfigValue(_PART_KEY, uuid)
 				return // we are done.
 			}
 		}
@@ -1101,7 +1089,7 @@ func partRequest() {
 			if len(idStr) == 2 {
 				if isValidUUID(idStr[1]) || strings.ToLower(idStr[1]) == strings.ToLower(_NULL_PART) {
 					// we are good. idStr[1] holds the uuid.
-					setLocalConfigValue(_PART_UUID_KEY, strings.ToLower(idStr[1]))
+					setLocalConfigValue(_PART_KEY, strings.ToLower(idStr[1]))
 					return // we are done.
 				} else {
 					// uuid is not valid format.
@@ -1151,25 +1139,52 @@ func removeRequest() {
 	case "-h", "--help":
 		// Display help
 		fmt.Println(_REMOVE_HELP_CONTENT)
+	case "--all":
+		artifacts, err := getArtifactListDB()
+		if err != nil {
+			fmt.Println("  fatal: sparts working database not accessible.")
+			os.Exit(_DB_ACCESSS_ERROR) // exit program
+		}
+		for _, artifact := range artifacts {
+			// Delete aritfact record
+			deleteArtifactFromDB(artifact)
+		}
+
 	default:
-		firsttime := true
+		////r, err := regexp.Compile("^[1-9]-[A-Za-z0-9._-]*$")
+		//firsttime := true
 		for i := 2; i <= len(os.Args[1:]); i++ {
+			////if r.MatchString(os.Args[i])
+			id := os.Args[i]
+			if _, err := strconv.Atoi(id); err != nil {
+				fmt.Printf("	error:  %s%s%s - id has invalid syntax. Expecting an integer.\n", _RED_FG, id, _COLOR_END)
+				continue
+			}
+			/**************
 			if _, err := strconv.Atoi(os.Args[i]); err != nil {
-				fmt.Printf("  %s is not an integer (id)\n", os.Args[i])
+				fmt.Printf("  %s is not a valid integer (id)\n", os.Args[i])
 				if firsttime {
 					firsttime = false
-					fmt.Println("  Usage: sparts remove <id> ...")
+					fmt.Println("  Usage: sparts remove -all|<id>+. Obtain id using: 'sparts status'")
 					fmt.Println("   e.g.,  sparts remove 4")
 					fmt.Println("  Obtain id from: 'sparts status'")
 					fmt.Println()
 				}
 				continue
 			}
+			************************/
 			// get the artifact record for specified id
-			artifact := getArtifactFromDB("id", os.Args[i])
+			artifact, err := getArtifactFromDB("id", id)
+			if err != nil {
+				fmt.Printf("	error:   %sid=%s%s - is not valid. Try 'sparts status'.\n", _RED_FG, id, _COLOR_END)
+				continue
+			}
 			// Delete aritfact record for id. Give error if id not found.
 			if !deleteArtifactFromDB(artifact) {
-				fmt.Println("  artifact not found for id =", os.Args[i])
+				/////fmt.Println("  artifact not found for id =", os.Args[i])
+				fmt.Printf("	error:   %s%s%s - artifact record not found\n", _RED_FG, id, _COLOR_END)
+			} else {
+				fmt.Printf("	removed: %s%s: %s %s\n", _GREEN_FG, id, artifact.Name, _COLOR_END)
 			}
 		}
 	}
@@ -1177,77 +1192,197 @@ func removeRequest() {
 
 // handle: 'sparts status' command
 func statusRequest() {
-	var id, name, path string
 
-	artifacts, err := getArtifactListDB()
-	if err != nil {
-		fmt.Println("  fatal: sparts working database not accessible.")
-		os.Exit(_DB_ACCESSS_ERROR) // exit program
-	}
+	// At least one argument.
 
-	fmt.Println()
-	supplychain := getLocalConfigValue("supply_chain")
-	fmt.Println("Network: ", supplychain)
-	////fmt.Println("Staged, waiting for commit:")
+	if len(os.Args) > 2 {
 
-	part_uuid := getLocalConfigValue(_PART_UUID_KEY)
-	partAlias, err := getAliasUsingValue(part_uuid)
-	if partAlias != "" && err == nil {
-		part_uuid = partAlias + " = " + part_uuid
-	}
+		switch strings.ToLower(os.Args[2]) {
+		case "-h", "--help":
+			// Display help
+			fmt.Println(_STATUS_HELP_CONTENT)
+		case "--view":
+			numArguments := len(os.Args)
+			if numArguments == 3 {
+				displayErrorMsg("The '--view' option is expecting another argument. Try '--help' for more details")
+				return
+			}
+			// sparts status --view id ...
+			//   0		1	  2     3
+			//                      ^
+			for i := 3; i < numArguments; i++ {
+				id := os.Args[i] // argument is database id
+				artifact, err := getArtifactFromDB("id", id)
+				if err != nil {
+					fmt.Printf("Artifact with id=%s does not exist\n", id)
+					continue
+				}
+				var path string
+				if isPathURL(artifact._path) {
+					// path is a url
+					path = artifact._path
+				} else {
+					// We have a file path (and not a url). Obtain abridged version
+					path = getAbridgedFilePath(artifact._path)
+				}
+				path = artifact._path
 
-	if part_uuid == _NULL_PART {
-		part_uuid = _RED_FG + part_uuid + _COLOR_END
-	} else {
-		part_uuid = _GREEN_FG + part_uuid + _COLOR_END
-	}
+				fmt.Println()
+				fmt.Println("|------------------------------------------------------")
+				fmt.Printf("| %sArtifact%s: %s%s%s\n", _WHITE_FG, _COLOR_END, _CYAN_FG, artifact.Name, _COLOR_END)
+				const padding = 0
+				w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, '.', tabwriter.Debug)
+				fmt.Fprintf(w, "\t%s\t%s\n", " -----------", "-----------------------------------------")
+				//fmt.Fprintf(w, "\t %s\t %s\n", "Name", artifact.Name)
+				fmt.Fprintf(w, "\t %s\t %s\n", "UUID", artifact.UUID)
+				fmt.Fprintf(w, "\t %s\t %s\n", "Label", artifact.Alias)
+				fmt.Fprintf(w, "\t %s\t %s\n", "Label", artifact.Label)
+				fmt.Fprintf(w, "\t %s\t %s\n", "Type", artifact.ContentType)
+				fmt.Fprintf(w, "\t %s\t %s\n", "Checksum", artifact.Checksum)
+				fmt.Fprintf(w, "\t %s\t %s\n", "OpenChain", artifact.OpenChain)
+				////fmt.Fprintf(w, "\t %s\t %s\n", "URI", uri)
+				fmt.Fprintf(w, "\t %s\t %s\n", "Full Path", path)
+				fmt.Fprintf(w, "\n")
+				w.Flush()
 
-	if len(artifacts) == 0 {
-		// nothing waiting to commit
-		fmt.Println("nothing to commit (use 'spart add' to stage artifact for commit)")
-		return // we're done
-	}
-	// At least one items pending a commit
-	fmt.Println("Staged artifacts to be committed:")
-	fmt.Println(" (use 'spart remove id1 id2 ...' to unstage)")
-	fmt.Println()
-	fmt.Println(" |---------------------------------------------------------------")
-	fmt.Println(" | ")
-	/******
-	partAlias, err := getAliasUsingValue(part_uuid)
-	fmt.Println("partAlias", partAlias)
-	if partAlias != "" && err == nil {
-		part_uuid = partAlias
-	}
-	*****/
-	fmt.Println(" | part :", part_uuid)
-	fmt.Println(" | ")
-	const padding = 1
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
-		tabwriter.Debug)
-	fmt.Fprintf(w, "\t%s\t%s\t %s\t %s \n", " ----", " ----------", "------", "------------------------")
-	fmt.Fprintf(w, "\t%s\t%s\t %s\t %s\n", "  Id", "  Name  ", " Type", "  File Path* or URI")
-	fmt.Fprintf(w, "\t%s\t%s\t %s\t %s\n", " ----", " ----------", "------", "------------------------")
+			}
+		default:
+			fmt.Printf("  error - '%s'is not a valid argument for %s\n", os.Args[1], filepath.Base(os.Args[0]))
+			return
+		} // end of switch
 
-	for i := range artifacts {
-		id = strconv.Itoa(artifacts[i]._ID)
-		name = artifacts[i].Name
-		if isPathURL(artifacts[i]._path) {
-			// path is a url link
-			path = artifacts[i]._path
-		} else {
-			// It is a file, convert path relative to the .sparts working directory.
-			////fmt.Println("Path:", artifacts[i]._path)
-			path = getAbridgedFilePath(artifacts[i]._path)
+	} else { // 'sparts status' command - no other arguments.
+		// ---------------------------
+		// Display Staging Area Table
+		//----------------------------
+
+		var id, name, path string
+
+		artifacts, err := getArtifactListDB()
+		if err != nil {
+			fmt.Println("  fatal: sparts working database not accessible.")
+			os.Exit(_DB_ACCESSS_ERROR) // exit program
 		}
-		fmt.Fprintf(w, "\t  %s\t %s\t %s\t %s\n", id, name, artifacts[i].ContentType, path)
+
+		fmt.Println()
+		ledgerNetwork := getLocalConfigValue(_LEDGER_NETWORK_KEY)
+		var color string
+		if ledgerNetwork == "" || ledgerNetwork == "tbd" {
+			color = _RED_FG
+			ledgerNetwork = "tdb"
+		} else {
+			color = _CYAN_FG
+		}
+		fmt.Printf("  Network: %s%s%s\n", color, ledgerNetwork, _COLOR_END)
+		////fmt.Println("Staged, waiting for commit:")
+
+		// At least one items pending a commit
+		part_uuid := getLocalConfigValue(_PART_KEY)
+		partAlias, err := getAliasUsingValue(part_uuid)
+		if partAlias != "" && err == nil {
+			trimUUID(part_uuid, 5)
+			//part_uuid = partAlias + " [" + part_uuid + "]"
+			part_uuid = partAlias + " " + trimUUID(part_uuid, 5)
+		}
+		if part_uuid == _NULL_PART {
+			part_uuid = _RED_FG + part_uuid + _COLOR_END
+		} else {
+			part_uuid = _GREEN_FG + part_uuid + _COLOR_END
+		}
+
+		envelope_uuid := getLocalConfigValue(_ENVELOPE_KEY)
+		envelopeAlias, err := getAliasUsingValue(envelope_uuid)
+		if envelopeAlias != "" && err == nil {
+			envelope_uuid = envelopeAlias + " [" + envelope_uuid + "]"
+		}
+
+		if envelope_uuid == _NULL_PART {
+			envelope_uuid = _RED_FG + envelope_uuid + _COLOR_END
+		} else {
+			envelope_uuid = _GREEN_FG + envelope_uuid + _COLOR_END
+		}
+
+		////fmt.Println("Staged artifacts to be committed:")
+
+		////fmt.Println()
+
+		fmt.Println(" |--------------------------------------------------------------------")
+		fmt.Println(" |    			--- Staging ---")
+		//fmt.Println(" | ")
+		// Decide 'focus' - i.e., whether to display 'part',envelope' or both
+		focus := getLocalConfigValue(_FOCUS_KEY)
+		switch focus {
+		case _PART_FOCUS:
+			fmt.Printf(" |     %s%s%s : %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
+		case _ENVELOPE_FOCUS:
+			fmt.Printf(" | %s%s%s : %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
+		case _BOTH_FOCUS:
+			fmt.Printf(" |     %s%s%s : %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
+			fmt.Printf(" | %s%s%s : %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
+		default:
+		}
+		fmt.Println(" |--------------------------------------------------------------------")
+		//fmt.Println(" | ")
+
+		if len(artifacts) == 0 {
+			// nothing waiting to post
+			///fmt.Printf("nothing to commit (use '%s add' to stage artifacts for posting to ledger)\n", filepath.Base(os.Args[0]))
+			/////w.Flush()
+			fmt.Println(" |")
+			fmt.Println(" |  [No atifacts have been placed into the staging area]")
+			fmt.Println()
+			fmt.Printf(" Use '%s add' to stage artifacts prior to posting to ledger\n", filepath.Base(os.Args[0]))
+			fmt.Println()
+			return // we're done
+		}
+
+		const padding = 0
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
+			tabwriter.Debug)
+		////fmt.Fprintf(w, " \t%s\t%s\t%s\t%s\t %s \n", " ----", " ----------", "------", "-----", "---------------------")
+		fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path* or URI")
+		fmt.Fprintf(w, " \t%s\t%s \t%s\t%s\t %s\n", " ----", " ----------", "------", "-----", "---------------------")
+
+		var openChain string
+		for i := range artifacts {
+			id = strconv.Itoa(artifacts[i]._ID)
+			name = artifacts[i].Name
+			if len(name) > 40 {
+				name = name[0:39]
+			}
+			if isPathURL(artifacts[i]._path) {
+				// path is a url link
+				path = artifacts[i]._path
+			} else {
+				// It is a file, convert path relative to the .sparts working directory.
+				////fmt.Println("Path:", artifacts[i]._path)
+				path = getAbridgedFilePath(artifacts[i]._path)
+			}
+			if artifacts[i].OpenChain == _TRUE {
+				openChain = " Y"
+			} else {
+				openChain = " -"
+			}
+			////fmt.Println(artifacts[i]._newOrUpdated)
+			if !artifacts[i]._newOrUpdated {
+				id = "*" + id
+			}
+
+			if len(id) < 3 {
+				id = " " + id
+			}
+			fmt.Fprintf(w, "\t %s\t %s \t%s\t %s\t %s\n", id, name, artifacts[i].ContentType, openChain, path)
+		}
+
+		//fmt.Fprintf(w, "\n")
+
+		w.Flush()
+		//fmt.Println("  -----")
+		fmt.Println(" |--------------------------------------------------------------------")
+		fmt.Println("  *File paths are relative to the sparts working directory.")
+		//fmt.Println()
+		fmt.Printf("   tip: use '%s remove id1 id2 ...' to remove items from the staging area\n", filepath.Base(os.Args[0]))
 	}
-
-	//fmt.Fprintf(w, "\n")
-
-	w.Flush()
-	fmt.Println("   ---")
-	fmt.Println(" * File paths are relative to the sparts working directory.")
 }
 
 // handle: 'sparts supplier' command
@@ -1318,7 +1453,7 @@ func supplierRequest() {
 // handle: 'sparts synch' command
 func synchRequest() {
 
-	fmt.Println("  Network: ", getLocalConfigValue(_SUPPLY_CHAIN_NETWORK_KEY))
+	fmt.Println("  Network: ", getLocalConfigValue(_LEDGER_NETWORK_KEY))
 	ok, err := pingServer(_LEDGER)
 	//ok, err := pingServer(_ATLAS)
 	//ok := false
@@ -1338,14 +1473,14 @@ func synchRequest() {
 		fmt.Println(" ", err)
 		// Suggest a fix for certain circumstances
 		if strings.Contains(err.Error(), "does not exist") {
-			fmt.Printf("  You may need to set or update local config variable: '%s'\n", _SUPPLY_CHAIN_NETWORK_KEY)
+			fmt.Printf("  You may need to set or update local config variable: '%s'\n", _LEDGER_NETWORK_KEY)
 			fmt.Printf("  To view local and global variables try: %s config --list\n", filepath.Base(os.Args[0]))
 		}
 		return
 	}
 	// Check if list is empty
 	if len(nodeList) == 0 {
-		fmt.Printf("  The network '%s' has no ledger nodes registered\n", getLocalConfigValue(_SUPPLY_CHAIN_NETWORK_KEY))
+		fmt.Printf("  The network '%s' has no ledger nodes registered\n", getLocalConfigValue(_LEDGER_NETWORK_KEY))
 		return
 	}
 	newNodeFound := false
@@ -1440,10 +1575,61 @@ func versionRequest() {
 
 // // handle: 'sparts seed' command
 func seedRequest() {
-	fmt.Println(" Not implemented")
+	var err error
+	if !_SEED_FUNCTION_ON {
+		fmt.Println(" Not implemented")
+		return
+	}
+
+	os.Args[0] = "sparts"
+
+	// seed
+	//os.Args = append(os.Args, "test2") // 2
+	//os.Args = append(os.Args, "test3") // 3
+	//os.Args = append(os.Args, "test4") // 4
+
+	setLocalConfigValue(_LEDGER_NETWORK_KEY, "zephyr-parts-network")
+	synchRequest()
+	setLocalConfigValue(_PART_KEY, "zephyr-parts-network")
+	if err = setLocalConfigValue(_SUPPLIER_KEY, "3568f20a-8faa-430e-7c65-e9fce9aa155d"); err != nil {
+		fmt.Println("Seeding", err)
+	}
+	if err = setLocalConfigValue(_PART_KEY, "fd6462e4-9560-4c7f-614c-a87f8ff792b8"); err != nil {
+		fmt.Println("Seeding", err)
+	}
+	setAlias("wr", "3568f20a-8faa-430e-7c65-e9fce9aa155d")
+	setAlias("p1", "fd6462e4-9560-4c7f-614c-a87f8ff792b8")
 }
 
 // Used for special testing
 func testRequest() {
 
+	r, _ := regexp.Compile(`^[1-9]+\-[0-9]+$`)
+	s, _ := regexp.Compile(`^[1-9][0-9]*$`)
+	var idList []int
+	for i := 2; i < len(os.Args); i++ {
+		if r.MatchString(os.Args[i]) || s.MatchString(os.Args[i]) {
+			if r.MatchString(os.Args[i]) {
+				list := strings.Split(os.Args[i], "-")
+				first, _ := strconv.Atoi(list[0])
+				last, _ := strconv.Atoi(list[1])
+				for i := first; i <= last; i++ {
+					////fmt.Print(i, " ")
+					idList = append(idList, i)
+				}
+
+			} else {
+				id, err := strconv.Atoi(os.Args[i])
+				if err == nil {
+					idList = append(idList, id)
+				}
+			}
+
+		}
+	}
+	fmt.Println("len=", len(idList))
+	for i := 0; i < len(idList); i++ {
+		fmt.Print(idList[i], " ")
+	}
+	fmt.Println()
 }

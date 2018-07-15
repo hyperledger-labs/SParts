@@ -177,6 +177,61 @@ func getPartArtifacts(part_uuid string) ([]ArtifactRecord, error) {
 	return artifactList, nil
 }
 
+// createArtifactFromFile creates an artifact record from a file's system info
+// The default value for:
+// 		ArtifactRecord.OpenChain is false.
+// A number of errors may occur:
+//		- If 'file' does not exist
+//		- If 'file' is a directory
+//		- file path can't be obtained
+func createArtifactFromFile(file string) (ArtifactRecord, error) {
+	fileInfo, err := os.Stat(file)
+	if err != nil {
+		return ArtifactRecord{}, fmt.Errorf("No such file or directory")
+	}
+	// Check if it is a directory. Expecting a file only.
+	if fileInfo.IsDir() {
+		return ArtifactRecord{}, fmt.Errorf("'%s' is a directory. Expecting file only", file)
+	}
+	// Extra check to make sure we have a file. IsRegular == true. May not be necessary
+	if !fileInfo.Mode().IsRegular() {
+		return ArtifactRecord{}, fmt.Errorf("'%s' is not a file. Expecting a file", file)
+	}
+
+	var name, label, fullpath string
+
+	fullpath, err = filepath.Abs(file)
+	if err != nil {
+		return ArtifactRecord{}, fmt.Errorf("Could not obtain full path for '%s'", file)
+	}
+
+	checksum, err := getFileSHA1(fullpath)
+	if err != nil {
+		return ArtifactRecord{}, fmt.Errorf("Error computing SHA1 for file: %s", getAbridgedFilePath(fullpath))
+	}
+
+	// Create envelope artifact record
+	artifact := ArtifactRecord{}
+	_, name, label, _ = FilenameDirectorySplit(fullpath)
+	// Clean up string on Windows platform replace '\' with '/'
+	fullpath = strings.Replace(fullpath, `\`, `/`, -1)
+
+	////artifactName := artifact.Name // use latter to replace 'name/' with './'
+
+	artifact.UUID = getUUID()
+	artifact.Name = name
+	artifact.Alias = label
+	artifact.Label = name
+	artifact.Checksum = checksum
+	artifact.ContentType = getArtifactFileType(file)
+	artifact.OpenChain = _FALSE
+	artifact.URIList = []URIRecord{} // initalize to the empty list
+	artifact._path = fullpath
+	artifact._newOrUpdated = true
+
+	return artifact, nil
+}
+
 // createEnvelopeFromDirectory generates a list of artifacts for the files
 // contained within a designate directory. Func returns a list of artifact records
 // where the first represents the top level envelope and the remainining artifact
@@ -268,9 +323,14 @@ func createEnvelopeFromDirectory(directory string) ([]ArtifactRecord, error) {
 // Return types are: "binary/audio", binary/executable", "binary/image",
 //    "binary/video", "document", "data", "source", "other"
 func getArtifactFileType(file string) string {
+	file = strings.ToLower(file)
 	_, _, _, extension := FilenameDirectorySplit(file)
 
-	switch strings.ToLower(extension) {
+	if strings.HasPrefix(file, "http://") || strings.HasPrefix(file, "https://") {
+		return "url"
+	}
+
+	switch extension {
 	case ".aac", ".aiff", ".alac", ".flac", ".mp3", ".pcm", ".wav", ".wma":
 		return "binary/audio"
 	case ".exe", ".jar", ".lib", ".scr", ".so":
@@ -280,18 +340,20 @@ func getArtifactFileType(file string) string {
 	case ".acc", ".avi", ".flv", ".mov", ".mpg", ".mp2", ".mpeg", ".mpe", ".mpv", ".mp4", ".m4p",
 		".oca", ".ogg", ".wmv":
 		return "binary/video"
-	case ".doc", ".html", ".jnl", ".md", ".pdf", ".ps", ".txt":
+	case ".doc", ".html", ".jnl", ".md", ".pdf", ".ps", ".rst", ".txt", ".text":
 		return "document"
 	case ".db", ".conf", ".config", ".log":
 		return "data"
 	case ".asm", ".asp", ".awk", ".bat", ".c", ".class", ".cmd", ".cpp", ".cxx",
-		".def", ".dll", ".dpc", ".dpj", ".dtd", ".dump", ".font",
+		".def", ".dll", ".dpc", ".dpj", ".dtd", ".dump", ".font", ".go",
 		".h", ".hdl", ".hpp", ".hrc", ".hxx", ".idl", ".inc", ".ini",
 		".java", ".js", ".jsp", ".l", ".pl", ".perl", ".pm", ".pmk", ".r", ".rc",
 		".res", "rpm", ".s", "sbl", ".sh", ".src", ".tar", ".url", ".y", "yxx":
 		return "source"
 	case ".bz2", ".gz", ".tgz", ".xz", ".zip":
 		return "source"
+	case ".spdx":
+		return "spdx"
 	default:
 		return "other"
 	}

@@ -27,15 +27,16 @@ type ArtifactRecord struct {
 	Alias        string         `json:"short_id,omitempty"`
 	Label        string         `json:"label,omitempty"` // Display name
 	Checksum     string         `json:"checksum"`
-	OpenChain    string         `json:"openchain,omitempty"`
 	ContentType  string         `json:"content_type,omitempty"`
+	OpenChain    string         `json:"openchain,omitempty"`
 	Timestamp    string         `json:"timestamp,omitempty"`
 	ArtifactList []ArtifactItem `json:"artifact_list,omitempty"`
 	URIList      []URIRecord    `json:"uri_list, omitempty"`
 	// Internal use only
-	_ID       int
-	_path     string
-	_verified bool
+	_ID           int
+	_newOrUpdated bool
+	_path         string
+	_verified     bool
 }
 
 type ArtifactOfEnvelopeRecord struct {
@@ -152,7 +153,7 @@ type UserRecord struct {
 }
 
 type URIRecord struct {
-	Version     string `json:"version"`
+	Version     string `json:"version"` // Version of URI format
 	Checksum    string `json:"checksum"`
 	ContentType string `json:"content_type"`   // text, envelope, binary, archive
 	Size        string `json:"size,omitempty"` // size in bytes

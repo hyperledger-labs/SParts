@@ -143,7 +143,7 @@ func createDBTables() {
 }
 
 // Insert Aftifact record into the DB
-func AddArtifactToDB(record ArtifactRecord) {
+func addArtifactToDB(record ArtifactRecord) error {
 
 	// TODO: return succes/failure status
 	openDB()
@@ -165,15 +165,54 @@ func AddArtifactToDB(record ArtifactRecord) {
 	stmt, err := theDB.Prepare(sql_additem)
 	defer stmt.Close()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err2 := stmt.Exec(record.UUID, record.Name, record.Alias, record.Label, record.Checksum,
 		record._path, record.ContentType, record.OpenChain)
 	if err2 != nil {
-		fmt.Println(err2)
+		return err2
 	}
 	//_, err = res.LastInsertId()
+
+	return nil // successfully added.
 }
+
+/***********************
+// updateArtifactToDB updates an existing artifact record into the DB
+func updateArtifactInDB(record ArtifactRecord) error {
+
+	// TODO: return succes/failure status
+	openDB()
+	defer theDB.Close()
+
+	// fyi - We never update UUID.
+	sql_additem := `
+	UPDATE Artifacts SET
+		Name,
+		Alias,
+		Label,
+		Checksum,
+		Path,
+		ContentType,
+		OpenChain,
+		InsertedDatetime
+		) values(?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+
+	stmt, err := theDB.Prepare(sql_additem)
+	defer stmt.Close()
+	if err != nil {
+		return err
+	}
+	_, err2 := stmt.Exec(record.UUID, record.Name, record.Alias, record.Label, record.Checksum,
+		record._path, record.ContentType, record.OpenChain)
+	if err2 != nil {
+		return err2
+	}
+	//_, err = res.LastInsertId()
+
+	return nil // successfully added.
+}
+****************/
 
 // Insert Supply Chain network Application record into the DB
 func deleteArtifactFromDB(record ArtifactRecord) bool {
@@ -230,7 +269,7 @@ func getArtifactListDB() ([]ArtifactRecord, error) {
 
 // getArtifactFromDB returns the artifact record for the artifact that has
 // 'value' for the database 'field'. Typically it is used with the database record id.
-func getArtifactFromDB(field string, value string) ArtifactRecord {
+func getArtifactFromDB(field string, value string) (ArtifactRecord, error) {
 
 	var record ArtifactRecord
 	var query_str string
@@ -248,18 +287,29 @@ func getArtifactFromDB(field string, value string) ArtifactRecord {
 	default:
 		fmt.Println()
 	}
-
 	////stmt, err := theDB.Prepare
 	rows, err := theDB.Query(query_str)
-	checkErr(err)
+	if err != nil {
+		rows.Close()
+		return ArtifactRecord{}, fmt.Errorf("artifact record not found (1)")
+	}
+	recordFound := false
 	for rows.Next() {
+		recordFound = true
 		err = rows.Scan(&record._ID, &record.UUID, &record.Name, &record.Alias, &record.Label,
 			&record.Checksum, &record._path, &record.OpenChain, &record.ContentType)
-		checkErr(err)
+		if err != nil {
+			rows.Close()
+			return ArtifactRecord{}, fmt.Errorf("artifact record not found (2)")
+		}
 	}
-	rows.Close() //good habit to close
+	rows.Close()
 
-	return record
+	if recordFound {
+		return record, nil
+	} else {
+		return ArtifactRecord{}, fmt.Errorf("artifact record not found (3)")
+	}
 }
 
 // Insert alias value into the DB
