@@ -87,9 +87,20 @@ For Example:
 `
 
 // add --help
-const _ADD_HELP_CONTENT = `usage: sparts add [<filepath>…​]
+const _ADD_HELP_CONTENT = `usage: sparts add [--openchain] [<filepath>…​]
+
+Directories will be recursively traverse and all the indentified files will
+be added. 
+  --openchain, -oc  flag all the artifacts as as being prepared under an OpenChain 
+                    conforming program
+
 Examples:
    sparts add notices.pdf  licenses.spdx
+   sparts add link=https://github.com/zephyrproject/zephyr/tree/v1.11-branch
+   sparts add --openchain notices.pdf   // flag artifacts as being prepared 
+                                        // under an OpenChain conforming program
+   sparts add --openchain               // flag all artifacts in staging table as being  
+                                        // prepared under an OpenChain conforming program
 `
 
 const _ALIAS_HELP_CONTENT = `usage: sparts alias <name> <value>
@@ -159,6 +170,17 @@ const _ENVELOPE_HELP_CONTENT = `usage: sparts envelope [<options>]
         sparts envelope --create usb-driver/
 `
 
+// focus [none|part|envelope|both]
+const _FOCUS_HELP_CONTENT = `usage: sparts focus [none|part|envelope|both]
+Focus command allow one to direct sparts to collect artifacts for a envelope 
+and part. One can specific one, the other or both. 
+  Examples:
+    sparts focus --envelope
+    sparts focus --part
+    sparts focus --both
+    sparts focus --none
+`
+
 // init --help
 const _INIT_HELP_CONTENT = `usage: sparts init
   Create an empty SParts repository or reinitialize an existing one
@@ -190,10 +212,21 @@ const _PART_HELP_CONTENT = `usage: sparts part [<options>]
       sparts part --set uuid=none
       sparts part --list        // list my supplier parts
       sparts part --list --all  // list all the parts on ledger
+      sparts part --get id=zephyr1.12   // list details about part one.
 `
 
-const _REMOVE_HELP_CONTENT = `
-   To be done
+const _REMOVE_HELP_CONTENT = `usage: sparts remove  -all|<id>+
+  Exampes:
+    sparts remove 2
+    sparts --all
+`
+
+const _STATUS_HELP_CONTENT = `usage: sparts status [--view]
+Provides a list of artifacts in the staging area prior to posting to 
+the ledger.
+  Exampes:
+    sparts status
+    sparts status --view 4     // view artifact details with table id 4
 `
 
 // supplier --help

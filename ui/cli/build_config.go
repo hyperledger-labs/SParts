@@ -23,17 +23,20 @@ package main
 const (
 	_DEBUG_DISPLAY_ON  = false
 	_DEBUG_REST_API_ON = false
+	_SEED_FUNCTION_ON  = true
 )
 
 // This is the default settings fot the local configuration
 const _LOCAL_CONFIG_FILE_CONTENT = `look_up: false
 part_uuid: tbd
+envelope_uuid: tbd
+focus: BOTH
 node:
   ledger_address:
   conductor_address:
 public_key:
 private_key:
-ledger_network: zephyr
+ledger_network: zephyr-parts-network
 supplier_uuid:
 `
 
@@ -78,13 +81,19 @@ const (
 
 // Misc  values
 const (
-	_ALIAS_LENGTH  = 15
-	_ALIAS_TOKEN   = "id="
-	_ENVELOPE_TYPE = "envelope"
-	_LEDGER        = "ledger"
-	_ATLAS         = "atlas"
-	_NONE          = "NONE"
-	_NULL_PART     = "tbd"
+	_ALIAS_LENGTH   = 15
+	_ALIAS_TOKEN    = "id="
+	_ENVELOPE_TYPE  = "envelope"
+	_LEDGER         = "ledger"
+	_ATLAS          = "atlas"
+	_NONE           = "NONE"
+	_ENVELOPE_FOCUS = "ENVELOPE"
+	_PART_FOCUS     = "PART"
+	_BOTH_FOCUS     = "BOTH"
+	_NO_FOCUS       = "NONE"
+	_NULL_PART      = "tbd"
+	_TRUE           = "true"
+	_FALSE          = "false"
 )
 
 // Limits

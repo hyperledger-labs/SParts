@@ -184,7 +184,7 @@ func isHidden(filename string) bool {
 // a directory path. Returns 'true' if it is a URL, 'false' otherwise.
 func isPathURL(path string) bool {
 	path = strings.ToLower(path)
-	if strings.Contains(path, "http") {
+	if strings.HasPrefix(path, "http") {
 		return true
 	}
 	return false
@@ -227,9 +227,33 @@ func getFileSHA1(file string) (string, error) {
 	}
 	defer f.Close()
 	if _, err := io.Copy(hasher, f); err != nil {
-		fmt.Println(err)
+		if _DEBUG_DISPLAY_ON {
+			fmt.Println(err)
+		}
 		return "", err
 	}
+
+	checksum := hex.EncodeToString(hasher.Sum(nil))
+	return checksum, nil
+}
+
+// getStringSHA1 returns the SHA1 of any string.
+func getStringSHA1(url string) (string, error) {
+
+	hasher := sha1.New()
+	r := strings.NewReader(url)
+	if _, err := io.Copy(hasher, r); err != nil {
+		if _DEBUG_DISPLAY_ON {
+			fmt.Println(err)
+		}
+		return "", err
+	}
+	/*****
+	source := []byte(url)
+	destination := make([]byte, hex.EncodedLen(len(source)))
+	hex.Encode(destination, source)
+	return string(destination)
+	***********/
 
 	checksum := hex.EncodeToString(hasher.Sum(nil))
 	return checksum, nil

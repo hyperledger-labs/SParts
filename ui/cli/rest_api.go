@@ -53,7 +53,7 @@ func sendGetRequest(apiCall string, reply interface{}) error {
 			displayErrorMsg(err.Error())
 		}
 		reply = nil
-		return fmt.Errorf("ledger may not be accessible")
+		return fmt.Errorf("ledger is not accessible")
 	}
 
 	var objmap map[string]*json.RawMessage
@@ -232,7 +232,7 @@ func getLedgerNodeList() ([]LedgerNodeRecord, error) {
 		return nil, err
 	}
 
-	apiStr := fmt.Sprintf("%s%s", _ATLAS_LIST_LEDGER_NODES_API, getLocalConfigValue(_SUPPLY_CHAIN_NETWORK_KEY))
+	apiStr := fmt.Sprintf("%s%s", _ATLAS_LIST_LEDGER_NODES_API, getLocalConfigValue(_LEDGER_NETWORK_KEY))
 	replyAsBytes, err := httpGetAPIRequest(getGlobalConfigValue(_ATLAS_ADDRESS_KEY), apiStr)
 
 	var reply ReplyType
