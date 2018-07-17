@@ -93,6 +93,9 @@ func createDBTables() {
 	openDB()
 	defer theDB.Close()
 
+	// -----------------------
+	// --    Artifacts Table
+	//------------------------
 	// Create Aritfacts  Table - a list of Artifacts
 	sql_cmd := `
 	CREATE TABLE IF NOT EXISTS Artifacts (
@@ -105,6 +108,8 @@ func createDBTables() {
 		Path TEXT,
 		OpenChain TEXT,
 		ContentType TEXT,
+		_envelopeUUID TEXT,
+		_notOnLedger TEXT,
 		InsertedDatetime DATETIME
 	);
 	`
@@ -114,6 +119,47 @@ func createDBTables() {
 		fmt.Println("  fatal: sparts database table creation not feasible. ")
 		os.Exit(3)
 	}
+
+	// -----------------------
+	// --    Evevlopes Table
+	//------------------------
+	// Create Envelopes Table - a list of Envelopes
+	sql_cmd = `
+	CREATE TABLE IF NOT EXISTS Envelopes (
+		Id INTEGER PRIMARY KEY AUTOINCREMENT,
+		UUID TEXT,
+		Name TEXT,
+		Alias TEXT,	
+		Label TEXT,
+		Checksum TEXT,
+		Path TEXT,
+		OpenChain TEXT,
+		ContentType TEXT,
+		_envelopeUUID TEXT,
+		_notOnLedger TEXT,
+		InsertedDatetime DATETIME
+	);
+	`
+	_, err = theDB.Exec(sql_cmd)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Printf("  fatal: sparts database table '%s' creation not feasible.\n", "Envelope")
+		os.Exit(3)
+	}
+
+	// Set UUID field to be unique in the Envelope table. If Insert detects existing UUID
+	// it will replace existing with new record.
+	sql_cmd = `CREATE UNIQUE INDEX idx_Apps_Envelope 
+				ON Envelopes (UUID);`
+
+	_, err = theDB.Exec(sql_cmd)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// -----------------------
+	// --    Alias Table
+	//------------------------
 
 	// Create the Aliases Table - a list of Aliases
 	sql_cmd = `
@@ -142,6 +188,11 @@ func createDBTables() {
 	}
 }
 
+// =========================================
+// ==    Artifacts Table
+// =========================================
+// AAAA
+
 // Insert Aftifact record into the DB
 func addArtifactToDB(record ArtifactRecord) error {
 
@@ -159,8 +210,10 @@ func addArtifactToDB(record ArtifactRecord) error {
 		Path,
 		ContentType,
 		OpenChain,
+		_envelopeUUID,
+		_notOnLedger,
 		InsertedDatetime
-		) values(?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+		) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
 
 	stmt, err := theDB.Prepare(sql_additem)
 	defer stmt.Close()
@@ -168,7 +221,7 @@ func addArtifactToDB(record ArtifactRecord) error {
 		return err
 	}
 	_, err2 := stmt.Exec(record.UUID, record.Name, record.Alias, record.Label, record.Checksum,
-		record._path, record.ContentType, record.OpenChain)
+		record._path, record.ContentType, record.OpenChain, record._envelopeUUID, record._notOnLedger)
 	if err2 != nil {
 		return err2
 	}
@@ -177,42 +230,34 @@ func addArtifactToDB(record ArtifactRecord) error {
 	return nil // successfully added.
 }
 
-/***********************
 // updateArtifactToDB updates an existing artifact record into the DB
-func updateArtifactInDB(record ArtifactRecord) error {
+func updateArtifactInDB(field string, value string, id string) error {
 
 	// TODO: return succes/failure status
 	openDB()
 	defer theDB.Close()
 
 	// fyi - We never update UUID.
-	sql_additem := `
-	UPDATE Artifacts SET
-		Name,
-		Alias,
-		Label,
-		Checksum,
-		Path,
-		ContentType,
-		OpenChain,
-		InsertedDatetime
-		) values(?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+
+	sql_additem := fmt.Sprintf("UPDATE Artifacts SET %s=? where ID=?", field)
 
 	stmt, err := theDB.Prepare(sql_additem)
 	defer stmt.Close()
 	if err != nil {
 		return err
 	}
-	_, err2 := stmt.Exec(record.UUID, record.Name, record.Alias, record.Label, record.Checksum,
-		record._path, record.ContentType, record.OpenChain)
-	if err2 != nil {
-		return err2
-	}
-	//_, err = res.LastInsertId()
 
-	return nil // successfully added.
+	// res, err2 := stmt.Exec(value, id)
+	_, err2 := stmt.Exec(value, id)
+	if err2 != nil {
+		return err
+	}
+	//affect, err := res.RowsAffected()
+	//checkErr(err)
+	// fmt.Println("affected:", affect)
+
+	return nil // successfully updated.
 }
-****************/
 
 // Insert Supply Chain network Application record into the DB
 func deleteArtifactFromDB(record ArtifactRecord) bool {
@@ -247,7 +292,7 @@ func getArtifactListDB() ([]ArtifactRecord, error) {
 
 	openDB()
 	defer theDB.Close()
-	rows, err := theDB.Query("SELECT ID, UUID, Name, Alias, Label, Checksum, Path, OpenChain, ContentType FROM Artifacts")
+	rows, err := theDB.Query("SELECT ID, UUID, Name, Alias, Label, Checksum, Path, OpenChain, ContentType, _envelopeUUID, _notOnLedger FROM Artifacts")
 
 	if err != nil {
 		//fmt.Println("error:", err)
@@ -256,7 +301,7 @@ func getArtifactListDB() ([]ArtifactRecord, error) {
 
 	for rows.Next() {
 		err = rows.Scan(&record._ID, &record.UUID, &record.Name, &record.Alias, &record.Label, &record.Checksum,
-			&record._path, &record.OpenChain, &record.ContentType)
+			&record._path, &record.OpenChain, &record.ContentType, &record._envelopeUUID, &record._notOnLedger)
 		if err != nil {
 			fmt.Println("error:", err)
 			break
@@ -281,7 +326,7 @@ func getArtifactFromDB(field string, value string) (ArtifactRecord, error) {
 	case "id":
 		query_str = fmt.Sprintf("SELECT ID, UUID, Name, Alias, Label, Checksum, Path, OpenChain, ContentType FROM Artifacts WHERE ID=%s", value)
 
-	case "checksum":
+	case "uuid":
 		//
 		fmt.Println()
 	default:
@@ -311,6 +356,115 @@ func getArtifactFromDB(field string, value string) (ArtifactRecord, error) {
 		return ArtifactRecord{}, fmt.Errorf("artifact record not found (3)")
 	}
 }
+
+func getArtifactListInDBWhere(field string, value string) ([]ArtifactRecord, error) {
+	var list []ArtifactRecord
+	var record ArtifactRecord
+
+	openDB()
+	defer theDB.Close()
+	//queryStr := fmt.Sprintf("SELECT ID, UUID, Name, Alias, Label, Checksum, Path, OpenChain, ContentType FROM Artifacts WHERE %s=%s", value, field)
+	//rows, err := theDB.Query(queryStr)
+	rows, err := theDB.Query("SELECT ID, UUID, Name, Alias, Label, Checksum, Path, OpenChain, ContentType, _envelopeUUID, _notOnLedger FROM Artifacts")
+
+	if err != nil {
+		//fmt.Println("error:", err)
+		return list, err // return empty list
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&record._ID, &record.UUID, &record.Name, &record.Alias, &record.Label, &record.Checksum,
+			&record._path, &record.OpenChain, &record.ContentType, &record._envelopeUUID, &record._notOnLedger)
+		if err != nil {
+			return list, fmt.Errorf("trouble accessing db: %s", err.Error())
+		}
+		switch strings.ToLower(field) {
+		case "contenttype":
+			if record.ContentType == value {
+				list = append(list, record)
+			}
+		case "uuid":
+			if record.UUID == value {
+				list = append(list, record)
+			}
+		}
+	}
+	rows.Close() //good habit to close
+	return list, err
+}
+
+// =========================================
+// ==    Envelopes Table
+// =========================================
+// EEEE
+
+// Insert Aftifact record into the DB
+func addEnvelopeToDB(record ArtifactRecord) error {
+
+	// TODO: return succes/failure status
+	openDB()
+	defer theDB.Close()
+
+	sql_additem := `
+	INSERT OR REPLACE INTO Envelopes (
+		UUID,
+		Name,
+		Alias,
+		Label,
+		Checksum,
+		Path,
+		ContentType,
+		OpenChain,
+		_envelopeUUID,
+		_notOnLedger,
+		InsertedDatetime
+		) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+
+	stmt, err := theDB.Prepare(sql_additem)
+	defer stmt.Close()
+	if err != nil {
+		return err
+	}
+	_, err2 := stmt.Exec(record.UUID, record.Name, record.Alias, record.Label, record.Checksum,
+		record._path, record.ContentType, record.OpenChain, record._envelopeUUID, record._notOnLedger)
+	if err2 != nil {
+		return err2
+	}
+	//_, err = res.LastInsertId()
+
+	return nil // successfully added.
+}
+
+func getEnvelopeListFromDB() ([]ArtifactRecord, error) {
+
+	var list []ArtifactRecord
+	var record ArtifactRecord
+
+	openDB()
+	defer theDB.Close()
+	rows, err := theDB.Query("SELECT ID, UUID, Name, Alias, Label, Checksum, Path, OpenChain, ContentType FROM Envelopes")
+
+	if err != nil {
+		//fmt.Println("error:", err)
+		return list, err // return empty list
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&record._ID, &record.UUID, &record.Name, &record.Alias, &record.Label, &record.Checksum,
+			&record._path, &record.OpenChain, &record.ContentType)
+		if err != nil {
+			fmt.Println("error:", err)
+			break
+		}
+		list = append(list, record)
+	}
+	rows.Close() //good habit to close
+	return list, err
+}
+
+// =========================================
+// ==    Alias Table
+// =========================================
 
 // Insert alias value into the DB
 func addAliasValueToDB(alias string, value string) {

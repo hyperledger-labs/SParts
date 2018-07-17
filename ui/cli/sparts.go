@@ -117,6 +117,8 @@ func main() {
 		partRequest()
 	case "ping":
 		pingRequest()
+	case "push":
+		pushRequest()
 	case "remove":
 		removeRequest()
 	case "seed":
@@ -190,10 +192,13 @@ func addRequest() {
 				artifact.Checksum, _ = getStringSHA1(theURL)
 				artifact.URIList = []URIRecord{} // initalize to the empty list
 				artifact._path = theURL
-				artifact.OpenChain = _FALSE
 				if openChain == _TRUE {
 					artifact.OpenChain = _TRUE
+				} else {
+					artifact.OpenChain = _FALSE
 				}
+				artifact._envelopeUUID = _NULL_UUID
+				artifact._notOnLedger = _TRUE
 				// Add to database
 				err = addArtifactToDB(artifact)
 				if err != nil {
@@ -670,7 +675,7 @@ func dirRequest() {
 }
 
 func focusRequest() {
-	if len(os.Args[1:]) == 1 || len(os.Args[1:]) > 2 {
+	if len(os.Args) == 2 {
 		// No arguments. Expecting: part, envelope, both, none. Display help
 		fmt.Println(_FOCUS_HELP_CONTENT)
 		return
@@ -680,10 +685,20 @@ func focusRequest() {
 		setLocalConfigValue(_FOCUS_KEY, _BOTH_FOCUS)
 	case "--envelope":
 		setLocalConfigValue(_FOCUS_KEY, _ENVELOPE_FOCUS)
+		if len(os.Args) == 4 && isValidUUID(os.Args[3]) {
+			//TODO: check that uuid is in fact an envelop in the db.
+			setLocalConfigValue(_ENVELOPE_KEY, os.Args[3])
+		}
+	case "--help", "-h", "help":
+		fmt.Println(_FOCUS_HELP_CONTENT)
 	case "--none":
 		setLocalConfigValue(_FOCUS_KEY, _NO_FOCUS)
 	case "--part", "-p":
 		setLocalConfigValue(_FOCUS_KEY, _PART_FOCUS)
+		if len(os.Args) == 4 && isValidUUID(os.Args[3]) {
+			//TODO: check that uuid is in fact an envelop in the db.
+			setLocalConfigValue(_ENVELOPE_KEY, os.Args[3])
+		}
 	}
 }
 
@@ -697,96 +712,120 @@ func envelopeRequest() {
 	}
 	switch strings.ToLower(os.Args[2]) {
 	case "--list", "-l":
-		if len(os.Args[2:]) > 1 && os.Args[3] == "--all" {
-			fmt.Println("  - Not Implemented Yet - list all parts in network")
-		} else {
-			// displaySupplierParts()
-			fmt.Println("  - Not Implemented Yet - list my (supplier) parts")
-		}
-	case "--help", "-help", "help", "-h":
+		displayEnvelopeList()
+	case "--help", "help", "-h":
 		// Display help
 		fmt.Println(_ENVELOPE_HELP_CONTENT)
-	case "--create":
-		if len(os.Args[2:]) <= 1 {
-			fmt.Println("  Error - Expecting a directory argument.")
-			fmt.Printf("  try: %s %s --help\n", filepath.Base(os.Args[0]), os.Args[1])
+	case "--set", "-s":
+		if len(os.Args) == 4 {
+			uuid := os.Args[3]
+			if isValidUUID(uuid) {
+				//TODO: check if valid envelope uuid.
+				err := setLocalConfigValue(_ENVELOPE_KEY, uuid)
+				if err != nil {
+					displayErrorMsg(err.Error())
+					return
+				}
+				return
+			} else {
+				displayErrorMsg(fmt.Sprintf("uuid '%s' is not in a valid format.", uuid))
+				return
+			}
+		} else {
+			displayErrorMsg("Incorrect number of arguments (expecting four). See sparts --envelope --help")
 			return
 		}
-		// Have at least 1 directory to create envelope from
-		// For each directory
-		for i := 3; i < len(os.Args); i++ {
-			directory := os.Args[i]
-
-			// Check if "help" is the second argument.
-			switch strings.ToLower(directory) {
-			case "--help", "-help", "-h":
-				if i == 2 {
-					// --help, -h is the second argument. Print the help text
-					fmt.Println(_ENVELOPE_HELP_CONTENT)
-					return // we are done
-				}
-				continue // if --help, -h comes after second argument then ignore it
+	case "--save":
+		envelopeUUID := getLocalConfigValue(_ENVELOPE_KEY)
+		focus := getLocalConfigValue(_FOCUS_KEY)
+		if focus != _ENVELOPE_FOCUS && focus != _BOTH_FOCUS {
+			displayErrorMsg("Stage focus is not set to the envelope. See 'sparts focus --help'")
+			return
+		}
+		if envelopeUUID == _NULL_UUID {
+			displayErrorMsg("Default envelope uuid not set. See 'sparts config --help'")
+			return
+		}
+		artifactList, err := getEnvelopeArtifactList(_NULL_UUID, true)
+		if err != nil {
+			displayErrorMsg(err.Error())
+			return
+		}
+		for _, artifact := range artifactList {
+			// if artifact.UUID == envelopeUUID {
+			if artifact.ContentType == _ENVELOPE_TYPE {
+				continue // artifact is the envelope we are adding to
 			}
-
-			if !isDirectory(directory) {
-				fmt.Printf(" %s: is not a directory.\n", directory)
-				continue // Not a directory - proceed to next directory
+			id := strconv.Itoa(artifact._ID)
+			err := updateArtifactInDB("_envelopeUUID", envelopeUUID, id)
+			if err != nil {
+				fmt.Printf("	error:     %s%s%s\n", _RED_FG, artifact.Name, _COLOR_END)
+			} else {
+				fmt.Printf("	inserting: %s%s%s\n", _GREEN_FG, artifact.Name, _COLOR_END)
 			}
+		}
 
-			fileCount := getFileCount(directory)
-			// Make number of files are within expectation.
-			if fileCount > _MAX_FILE_WARNING_COUNT {
-				fmt.Printf(" %s directory contains %d files\n", directory, fileCount)
-				fmt.Printf(" Do you want to proceed (y/n)?")
-				fmt.Print(" > ")
-				// Read from standard input.
-				scanner := bufio.NewScanner(os.Stdin)
-				scanner.Scan()
-				answer := strings.ToLower(scanner.Text())
-				if answer == "y" || answer == "yes" {
-					fmt.Println(" proceeding ...")
-				} else {
-					// User does not want to continue. Too many files. Go process next directory
+	case "--create":
+		if len(os.Args) > 3 {
+			displayErrorMsg(fmt.Sprintf("too many arguments specified. Try '%s %s --help'", filepath.Base(os.Args[0]), filepath.Base(os.Args[1])))
+			return
+		}
+		r, err := regexp.Compile("^[A-Za-z0-9_][A-Za-z0-9._-]*$")
+		name := ""
+		for name == "" {
+			name = getkeyboardReponse("What is the envelope name (q=quit)?")
+			if strings.ToLower(name) == "q" {
+				return
+			}
+			if len(name) > 20 || !r.MatchString(name) {
+				fmt.Printf("invalid syntax '%s'. Please try again", name)
+				name = ""
+			}
+		}
+		uuid := getUUID()
+		alias := ""
+		notDone := true
+		for notDone {
+			if getkeyboardYesNoReponse("Would you like to create an alias for the envelope (y/n)?") {
+				alias = getkeyboardReponse("Enter the alias you would like to use?")
+				if alias == "" {
 					continue
 				}
+				err := setAlias(alias, uuid)
+				if err != nil {
+					fmt.Printf("Error: Unable to create alias '%s'.\n", alias)
+				} else {
+					fmt.Printf("Use expression '%s%s' to reference this envelope\n", _ALIAS_TOKEN, alias)
+				}
+				notDone = false
+			} else {
+				notDone = false
 			}
+		}
 
-			artifactList, _ := createEnvelopeFromDirectory(directory)
-			artifactsAsJSON, err := createJSONFormat(artifactList)
+		envelope := ArtifactRecord{}
+		envelope.Name = name
+		envelope.UUID = uuid
+		envelope.Alias = name
+		envelope.Label = name
+		envelope.ContentType = _ENVELOPE_TYPE
+		envelope.Checksum, _ = getStringSHA1(name)
+		envelope.OpenChain = _FALSE
+		envelope.ArtifactList = []ArtifactItem{}
+		envelope.URIList = []URIRecord{}
+		envelope._notOnLedger = _TRUE
+		envelope._envelopeUUID = _NULL_UUID
 
-			if err != nil {
-				fmt.Println("Unable to create evelope JSON format. Canceling envelope creation")
-				continue
-			}
-			fmt.Println(artifactsAsJSON)
+		// err = addEnvelopeToDB(envelope)
+		err = addArtifactToDB(envelope)
+		if err != nil {
+			fmt.Printf("Not able to add Envelope '%s' the the db. \n", name)
+			displayErrorMsg(err.Error())
+		} else {
+			fmt.Printf("Envelope '%s' has been successfully created\n", name)
+		}
+		return
 
-			partUUID := getLocalConfigValue(_PART_KEY)
-			alias, _ := getAliasUsingValue(partUUID)
-			if alias == "" {
-				alias = partUUID
-			}
-
-			if !getkeyboardYesNoReponse(fmt.Sprintf("The envelope contents is listed above. Do you want to post it \n to the Ledger for part '%s%s%s')?", _GREEN_FG, alias, _COLOR_END)) {
-				// They do not wish to proceed.
-				continue
-			}
-
-			// Returns true if successful
-			postEnvelopeToledger(artifactList)
-
-			// Now create relationship between parts and artifacts
-			for i := 1; i < len(artifactList); i++ {
-				createPartArtifactRelationship(partUUID, artifactList[i].UUID)
-				fmt.Println(i)
-			}
-
-			//saveEnvelope (artifactsAsJSON)
-			// TODO Create TOC.json
-
-			// completed processing directory
-			fmt.Println()
-
-		} // for loop - see if another directory
 	default:
 		//fmt.Println (isHidden(os.Args[2]))
 		fmt.Printf("  '%s' is not a valid argument for %s\n", os.Args[2], os.Args[1])
@@ -988,7 +1027,7 @@ func partRequest() {
 			// no other arguments (e.g., no uuid). Assume local config supplier uuid
 			// e.g., sparts part --get
 			partID = getLocalConfigValue(_PART_KEY)
-			if partID == _NULL_PART {
+			if partID == _NULL_UUID {
 				fmt.Println("Part uuid is not assigned in local config file. Try:")
 				fmt.Printf("  %s part --get uuid=<uuid>\n", filepath.Base(os.Args[0]))
 				fmt.Println("or")
@@ -1000,7 +1039,7 @@ func partRequest() {
 			// next argument is a uuid or alias for a uuid.
 			partID = os.Args[3]
 			if !isValidUUID(partID) {
-				if strings.ToLower(partID) == strings.ToLower(_NULL_PART) {
+				if strings.ToLower(partID) == strings.ToLower(_NULL_UUID) {
 					fmt.Printf("  '%s' is not acceptable value here\n", partID)
 					return // we are done. exit func.
 				} else {
@@ -1070,7 +1109,7 @@ func partRequest() {
 		var uuid string
 		if len(os.Args[3:]) >= 1 {
 			uuid = strings.ToLower(os.Args[3])
-			if isValidUUID(uuid) || strings.ToLower(uuid) == strings.ToLower(_NULL_PART) {
+			if isValidUUID(uuid) || strings.ToLower(uuid) == strings.ToLower(_NULL_UUID) {
 				// we are good.
 				setLocalConfigValue(_PART_KEY, uuid)
 				return // we are done.
@@ -1087,7 +1126,7 @@ func partRequest() {
 			idStr = strings.Split(os.Args[3], "=")
 			//if isValidUUID(idStr[0]) {
 			if len(idStr) == 2 {
-				if isValidUUID(idStr[1]) || strings.ToLower(idStr[1]) == strings.ToLower(_NULL_PART) {
+				if isValidUUID(idStr[1]) || strings.ToLower(idStr[1]) == strings.ToLower(_NULL_UUID) {
 					// we are good. idStr[1] holds the uuid.
 					setLocalConfigValue(_PART_KEY, strings.ToLower(idStr[1]))
 					return // we are done.
@@ -1102,7 +1141,7 @@ func partRequest() {
 			fmt.Printf("Format is not valid. Expecting: \n")
 			fmt.Printf("   %s --set uuid=<uuid>  \n", filepath.Base(os.Args[0]))
 			fmt.Printf("   %s --set uuid=%s    .\n",
-				filepath.Base(os.Args[0]), strings.ToLower(_NULL_PART))
+				filepath.Base(os.Args[0]), strings.ToLower(_NULL_UUID))
 		} else {
 			fmt.Printf("UUID '%s' is not properly formatted\n", idStr[1])
 		}
@@ -1124,6 +1163,123 @@ func pingRequest() {
 		fmt.Println("ping was successful")
 	} else {
 		fmt.Println("ping failed")
+	}
+}
+
+func pushRequest() {
+
+	if len(os.Args) == 3 && (strings.ToLower(os.Args[2]) == "--help" || strings.ToLower(os.Args[2]) == "-h") {
+		fmt.Println(_PUSH_HELP_CONTENT)
+		return
+	}
+	if len(os.Args) != 4 {
+		displayErrorMsg(fmt.Sprintf("wrong number of arguments specified. Try '%s %s --help'", filepath.Base(os.Args[0]), os.Args[1]))
+		return
+	}
+	if strings.ToLower(os.Args[2]) == "--help" || strings.ToLower(os.Args[2]) == "-h" {
+		fmt.Println(_PUSH_HELP_CONTENT)
+		return
+	}
+	if !(strings.ToLower(os.Args[2]) == "envelope" || strings.ToLower(os.Args[3]) == "ledger") {
+		displayErrorMsg(fmt.Sprintf("Argument '%s' is not valid. See '%s %s --help'", os.Args[2], filepath.Base(os.Args[0]), os.Args[1]))
+		return
+	}
+
+	// Ok, let's push the staging areas to the ledger
+
+	var envelopeUUID, partUUID string
+	// Check part and envelope are assigned as default.
+	if envelopeUUID = getLocalConfigValue(_ENVELOPE_KEY); envelopeUUID == _NULL_UUID {
+		displayErrorMsg(fmt.Sprintf("Default ENVELOPE uuid has NOT been assigned in local config file. See '%s %s --help'", filepath.Base(os.Args[0]), os.Args[1]))
+	}
+	if partUUID = getLocalConfigValue(_PART_KEY); partUUID == _NULL_UUID {
+		displayErrorMsg(fmt.Sprintf("Default PART uuid has NOT been assigned in local config file. See '%s %s --help'", filepath.Base(os.Args[0]), os.Args[1]))
+	}
+
+	// Get list of artifacts.
+	var displayArtifacts []ArtifactRecord
+	var err error
+
+	// getArfitactFromDB where uuid == envelopeID
+
+	// Push envelope if not on ledger already.
+	var envelope ArtifactRecord
+	list, err := getArtifactListInDBWhere("UUID", envelopeUUID)
+	if err != nil {
+		displayErrorMsg(err.Error())
+		return
+	}
+	// TODO: We are getting a list but show modify call to return a single record
+	if len(list) > 0 {
+		envelope = list[0]
+	}
+
+	//fmt.Printf("Isss: '%s'  '%d'  '%s'\n", envelope.UUID, len(list), envelopeUUID)
+	//return
+	//ZZZZ
+
+	if envelope._notOnLedger == _TRUE {
+		ok, err := pushArtifactToLedger(envelope)
+		if !ok || err != nil {
+			// Error occurred
+			fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, envelope.Name, _COLOR_END)
+			fmt.Printf("  Aborting the 'push' request.\n")
+			return
+		}
+		// So far so good. Update the envelope status in db.
+		envelope._notOnLedger = _FALSE
+		id := strconv.Itoa(envelope._ID)
+		err = updateArtifactInDB("_notOnLedger", _FALSE, id)
+		if err != nil {
+			if _DEBUG_DISPLAY_ON {
+				fmt.Printf("DB error updating db for: %s - \n", envelope.Name, err)
+			}
+		}
+		fmt.Printf("	pushing: %s%s%s\n", _GREEN_FG, envelope.Name, _COLOR_END)
+	}
+	// Made sure the Envelope is on the ledger
+	// Now push the artifacts.Start by getting the artifact list
+	displayArtifacts, err = getEnvelopeArtifactList(envelopeUUID, false)
+	if err != nil {
+		displayErrorMsg(err.Error())
+		if _DEBUG_DISPLAY_ON {
+			here(2, err)
+		}
+		return
+	}
+
+	for _, artifact := range displayArtifacts {
+		if artifact.ContentType == _ENVELOPE_TYPE || artifact.UUID == envelopeUUID {
+			continue // skip
+		}
+		//fmt.Println(artifact.Name, artifact._notOnLedger)
+		//continue
+		if artifact._notOnLedger == _TRUE {
+			ok, err := pushArtifactToLedger(artifact)
+			if !ok || err != nil {
+				// Error occurred
+				fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, artifact.Name, _COLOR_END)
+				////fmt.Sprintf("error pushing artifact '%s. See '%s %s --help'", filepath.Base(os.Args[0]), os.Args[1]))
+				continue // go get next artifact
+			} else {
+				// So far so good. Update the artifact status in db.
+				artifact._notOnLedger = _FALSE
+				id := strconv.Itoa(artifact._ID)
+				err := updateArtifactInDB("_notOnLedger", _FALSE, id)
+				if err != nil && _DEBUG_DISPLAY_ON {
+					fmt.Printf("DB error updating db for: %s - \n", artifact.Name, err)
+				}
+				// Create relationship between envelope and artifact on ledger
+				////fmt.Println(" '%s' '%s' '%s'", artifact.UUID, envelopeUUID)
+				err = createArtifactOfEnvelopeRelation(artifact.UUID, envelopeUUID)
+				if err != nil {
+					fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, artifact.Name, _COLOR_END)
+				} else {
+					// Report success.
+					fmt.Printf("	pushing: %s%s%s\n", _GREEN_FG, artifact.Name, _COLOR_END)
+				}
+			}
+		}
 	}
 }
 
@@ -1195,194 +1351,69 @@ func statusRequest() {
 
 	// At least one argument.
 
-	if len(os.Args) > 2 {
-
-		switch strings.ToLower(os.Args[2]) {
-		case "-h", "--help":
-			// Display help
-			fmt.Println(_STATUS_HELP_CONTENT)
-		case "--view":
-			numArguments := len(os.Args)
-			if numArguments == 3 {
-				displayErrorMsg("The '--view' option is expecting another argument. Try '--help' for more details")
-				return
-			}
-			// sparts status --view id ...
-			//   0		1	  2     3
-			//                      ^
-			for i := 3; i < numArguments; i++ {
-				id := os.Args[i] // argument is database id
-				artifact, err := getArtifactFromDB("id", id)
-				if err != nil {
-					fmt.Printf("Artifact with id=%s does not exist\n", id)
-					continue
-				}
-				var path string
-				if isPathURL(artifact._path) {
-					// path is a url
-					path = artifact._path
-				} else {
-					// We have a file path (and not a url). Obtain abridged version
-					path = getAbridgedFilePath(artifact._path)
-				}
-				path = artifact._path
-
-				fmt.Println()
-				fmt.Println("|------------------------------------------------------")
-				fmt.Printf("| %sArtifact%s: %s%s%s\n", _WHITE_FG, _COLOR_END, _CYAN_FG, artifact.Name, _COLOR_END)
-				const padding = 0
-				w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, '.', tabwriter.Debug)
-				fmt.Fprintf(w, "\t%s\t%s\n", " -----------", "-----------------------------------------")
-				//fmt.Fprintf(w, "\t %s\t %s\n", "Name", artifact.Name)
-				fmt.Fprintf(w, "\t %s\t %s\n", "UUID", artifact.UUID)
-				fmt.Fprintf(w, "\t %s\t %s\n", "Label", artifact.Alias)
-				fmt.Fprintf(w, "\t %s\t %s\n", "Label", artifact.Label)
-				fmt.Fprintf(w, "\t %s\t %s\n", "Type", artifact.ContentType)
-				fmt.Fprintf(w, "\t %s\t %s\n", "Checksum", artifact.Checksum)
-				fmt.Fprintf(w, "\t %s\t %s\n", "OpenChain", artifact.OpenChain)
-				////fmt.Fprintf(w, "\t %s\t %s\n", "URI", uri)
-				fmt.Fprintf(w, "\t %s\t %s\n", "Full Path", path)
-				fmt.Fprintf(w, "\n")
-				w.Flush()
-
-			}
-		default:
-			fmt.Printf("  error - '%s'is not a valid argument for %s\n", os.Args[1], filepath.Base(os.Args[0]))
-			return
-		} // end of switch
-
-	} else { // 'sparts status' command - no other arguments.
+	if len(os.Args) == 2 {
+		//  'sparts status'
 		// ---------------------------
 		// Display Staging Area Table
 		//----------------------------
-
-		var id, name, path string
-
-		artifacts, err := getArtifactListDB()
-		if err != nil {
-			fmt.Println("  fatal: sparts working database not accessible.")
-			os.Exit(_DB_ACCESSS_ERROR) // exit program
-		}
-
-		fmt.Println()
-		ledgerNetwork := getLocalConfigValue(_LEDGER_NETWORK_KEY)
-		var color string
-		if ledgerNetwork == "" || ledgerNetwork == "tbd" {
-			color = _RED_FG
-			ledgerNetwork = "tdb"
-		} else {
-			color = _CYAN_FG
-		}
-		fmt.Printf("  Network: %s%s%s\n", color, ledgerNetwork, _COLOR_END)
-		////fmt.Println("Staged, waiting for commit:")
-
-		// At least one items pending a commit
-		part_uuid := getLocalConfigValue(_PART_KEY)
-		partAlias, err := getAliasUsingValue(part_uuid)
-		if partAlias != "" && err == nil {
-			trimUUID(part_uuid, 5)
-			//part_uuid = partAlias + " [" + part_uuid + "]"
-			part_uuid = partAlias + " " + trimUUID(part_uuid, 5)
-		}
-		if part_uuid == _NULL_PART {
-			part_uuid = _RED_FG + part_uuid + _COLOR_END
-		} else {
-			part_uuid = _GREEN_FG + part_uuid + _COLOR_END
-		}
-
-		envelope_uuid := getLocalConfigValue(_ENVELOPE_KEY)
-		envelopeAlias, err := getAliasUsingValue(envelope_uuid)
-		if envelopeAlias != "" && err == nil {
-			envelope_uuid = envelopeAlias + " [" + envelope_uuid + "]"
-		}
-
-		if envelope_uuid == _NULL_PART {
-			envelope_uuid = _RED_FG + envelope_uuid + _COLOR_END
-		} else {
-			envelope_uuid = _GREEN_FG + envelope_uuid + _COLOR_END
-		}
-
-		////fmt.Println("Staged artifacts to be committed:")
-
-		////fmt.Println()
-
-		fmt.Println(" |--------------------------------------------------------------------")
-		fmt.Println(" |    			--- Staging ---")
-		//fmt.Println(" | ")
-		// Decide 'focus' - i.e., whether to display 'part',envelope' or both
-		focus := getLocalConfigValue(_FOCUS_KEY)
-		switch focus {
-		case _PART_FOCUS:
-			fmt.Printf(" |     %s%s%s : %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
-		case _ENVELOPE_FOCUS:
-			fmt.Printf(" | %s%s%s : %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
-		case _BOTH_FOCUS:
-			fmt.Printf(" |     %s%s%s : %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
-			fmt.Printf(" | %s%s%s : %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
-		default:
-		}
-		fmt.Println(" |--------------------------------------------------------------------")
-		//fmt.Println(" | ")
-
-		if len(artifacts) == 0 {
-			// nothing waiting to post
-			///fmt.Printf("nothing to commit (use '%s add' to stage artifacts for posting to ledger)\n", filepath.Base(os.Args[0]))
-			/////w.Flush()
-			fmt.Println(" |")
-			fmt.Println(" |  [No atifacts have been placed into the staging area]")
-			fmt.Println()
-			fmt.Printf(" Use '%s add' to stage artifacts prior to posting to ledger\n", filepath.Base(os.Args[0]))
-			fmt.Println()
-			return // we're done
-		}
-
-		const padding = 0
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
-			tabwriter.Debug)
-		////fmt.Fprintf(w, " \t%s\t%s\t%s\t%s\t %s \n", " ----", " ----------", "------", "-----", "---------------------")
-		fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path* or URI")
-		fmt.Fprintf(w, " \t%s\t%s \t%s\t%s\t %s\n", " ----", " ----------", "------", "-----", "---------------------")
-
-		var openChain string
-		for i := range artifacts {
-			id = strconv.Itoa(artifacts[i]._ID)
-			name = artifacts[i].Name
-			if len(name) > 40 {
-				name = name[0:39]
-			}
-			if isPathURL(artifacts[i]._path) {
-				// path is a url link
-				path = artifacts[i]._path
-			} else {
-				// It is a file, convert path relative to the .sparts working directory.
-				////fmt.Println("Path:", artifacts[i]._path)
-				path = getAbridgedFilePath(artifacts[i]._path)
-			}
-			if artifacts[i].OpenChain == _TRUE {
-				openChain = " Y"
-			} else {
-				openChain = " -"
-			}
-			////fmt.Println(artifacts[i]._newOrUpdated)
-			if !artifacts[i]._newOrUpdated {
-				id = "*" + id
-			}
-
-			if len(id) < 3 {
-				id = " " + id
-			}
-			fmt.Fprintf(w, "\t %s\t %s \t%s\t %s\t %s\n", id, name, artifacts[i].ContentType, openChain, path)
-		}
-
-		//fmt.Fprintf(w, "\n")
-
-		w.Flush()
-		//fmt.Println("  -----")
-		fmt.Println(" |--------------------------------------------------------------------")
-		fmt.Println("  *File paths are relative to the sparts working directory.")
-		//fmt.Println()
-		fmt.Printf("   tip: use '%s remove id1 id2 ...' to remove items from the staging area\n", filepath.Base(os.Args[0]))
+		displayStagingTable()
+		return
 	}
+
+	// one or more additional arguments.
+	switch strings.ToLower(os.Args[2]) {
+	case "-h", "--help":
+		// Display help
+		fmt.Println(_STATUS_HELP_CONTENT)
+	case "--view":
+		numArguments := len(os.Args)
+		if numArguments == 3 {
+			displayErrorMsg("The '--view' option is expecting another argument. Try '--help' for more details")
+			return
+		}
+		// sparts status --view id ...
+		//   0		1	  2     3
+		//                      ^
+		for i := 3; i < numArguments; i++ {
+			id := os.Args[i] // argument is database id
+			artifact, err := getArtifactFromDB("id", id)
+			if err != nil {
+				fmt.Printf("Artifact with id=%s does not exist\n", id)
+				continue
+			}
+			var path string
+			if isPathURL(artifact._path) {
+				// path is a url
+				path = artifact._path
+			} else {
+				// We have a file path (and not a url). Obtain abridged version
+				path = getAbridgedFilePath(artifact._path)
+			}
+			path = artifact._path
+
+			fmt.Println()
+			fmt.Println("|------------------------------------------------------")
+			fmt.Printf("| %sArtifact%s: %s%s%s\n", _WHITE_FG, _COLOR_END, _CYAN_FG, artifact.Name, _COLOR_END)
+			const padding = 0
+			w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, '.', tabwriter.Debug)
+			fmt.Fprintf(w, "\t%s\t%s\n", " -----------", "-----------------------------------------")
+			//fmt.Fprintf(w, "\t %s\t %s\n", "Name", artifact.Name)
+			fmt.Fprintf(w, "\t %s\t %s\n", "UUID", artifact.UUID)
+			fmt.Fprintf(w, "\t %s\t %s\n", "Alias", artifact.Alias)
+			fmt.Fprintf(w, "\t %s\t %s\n", "Label", artifact.Label)
+			fmt.Fprintf(w, "\t %s\t %s\n", "Type", artifact.ContentType)
+			fmt.Fprintf(w, "\t %s\t %s\n", "Checksum", artifact.Checksum)
+			fmt.Fprintf(w, "\t %s\t %s\n", "OpenChain", artifact.OpenChain)
+			////fmt.Fprintf(w, "\t %s\t %s\n", "URI", uri)
+			fmt.Fprintf(w, "\t %s\t %s\n", "Full Path", path)
+			fmt.Fprintf(w, "\n")
+			w.Flush()
+
+		}
+	default:
+		fmt.Printf("  error - '%s'is not a valid argument for %s\n", os.Args[1], filepath.Base(os.Args[0]))
+		return
+	} // end of switch
 }
 
 // handle: 'sparts supplier' command
@@ -1577,11 +1608,11 @@ func versionRequest() {
 func seedRequest() {
 	var err error
 	if !_SEED_FUNCTION_ON {
-		fmt.Println(" Not implemented")
+		fmt.Println(" Seed function NOT implemented")
 		return
 	}
 
-	os.Args[0] = "sparts"
+	//os.Args[0] = "sparts"
 
 	// seed
 	//os.Args = append(os.Args, "test2") // 2
@@ -1599,10 +1630,18 @@ func seedRequest() {
 	}
 	setAlias("wr", "3568f20a-8faa-430e-7c65-e9fce9aa155d")
 	setAlias("p1", "fd6462e4-9560-4c7f-614c-a87f8ff792b8")
+	setLocalConfigValue(_PRIVATE_KEY, "5K92SiHianMJRtqRiMaQ6xwzuYz7xaFRa2C8ruBQT6edSBg87Kq")
+	setLocalConfigValue(_PUBLIC_KEY, "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515")
+	setLocalConfigValue(_LEDGER_NETWORK_KEY, "zephyr-parts-network")
+
 }
 
 // Used for special testing
 func testRequest() {
+
+	updateArtifactInDB(os.Args[2], os.Args[3], os.Args[4])
+
+	/******
 
 	r, _ := regexp.Compile(`^[1-9]+\-[0-9]+$`)
 	s, _ := regexp.Compile(`^[1-9][0-9]*$`)
@@ -1632,4 +1671,5 @@ func testRequest() {
 		fmt.Print(idList[i], " ")
 	}
 	fmt.Println()
+	************/
 }

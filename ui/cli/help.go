@@ -168,6 +168,10 @@ const _ENVELOPE_HELP_CONTENT = `usage: sparts envelope [<options>]
   -c, --create:  Create envelopes for the listed directories. 
     e.g.,
         sparts envelope --create usb-driver/
+  For Example:
+    sparts envelope --create
+    sparts envelope --list 
+    sparts focus --focus id=zephyr-compliance
 `
 
 // focus [none|part|envelope|both]
@@ -214,6 +218,11 @@ const _PART_HELP_CONTENT = `usage: sparts part [<options>]
       sparts part --list --all  // list all the parts on ledger
       sparts part --get id=zephyr1.12   // list details about part one.
 `
+const _PUSH_HELP_CONTENT = `  usage: sparts push envelope ledger
+  Examples:
+    sparts push envelope ledger
+    sparts push artifacts ledger
+  `
 
 const _REMOVE_HELP_CONTENT = `usage: sparts remove  -all|<id>+
   Exampes:

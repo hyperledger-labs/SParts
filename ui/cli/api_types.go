@@ -24,7 +24,7 @@ const (
 type ArtifactRecord struct {
 	UUID         string         `json:"uuid"`
 	Name         string         `json:"name"`
-	Alias        string         `json:"short_id,omitempty"`
+	Alias        string         `json:"alias,omitempty"`
 	Label        string         `json:"label,omitempty"` // Display name
 	Checksum     string         `json:"checksum"`
 	ContentType  string         `json:"content_type,omitempty"`
@@ -33,10 +33,13 @@ type ArtifactRecord struct {
 	ArtifactList []ArtifactItem `json:"artifact_list,omitempty"`
 	URIList      []URIRecord    `json:"uri_list, omitempty"`
 	// Internal use only
-	_ID           int
-	_newOrUpdated bool
-	_path         string
-	_verified     bool
+	_ID       int
+	_path     string
+	_verified bool
+
+	// for staging
+	_notOnLedger  string
+	_envelopeUUID string
 }
 
 type ArtifactOfEnvelopeRecord struct {
@@ -48,6 +51,7 @@ type ArtifactOfEnvelopeRecord struct {
 type ArtifactEnvelopePair struct {
 	ArtifactUUID string `json:"artifact_uuid"`
 	EnvelopeUUID string `json:"envelope_uuid"`
+	Path         string `json:"path"`
 }
 
 type ArtifactOfPart struct {

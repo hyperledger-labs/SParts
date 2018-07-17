@@ -31,7 +31,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"text/tabwriter"
 )
 
 // createEnvelopeChecksum generates the checksum for an envelope.
@@ -53,11 +55,11 @@ func createEnvelopeChecksum(artifactList []ArtifactRecord) string {
 	return sha
 }
 
-// postArtifactToLedger adds an artifact to the ledger.
+// pushArtifactToLedger adds an artifact to the ledger.
 // Return is true if successful, false otherwise.
 // error will indicate the error encountered. It does not display
 // error messages to the terminal.
-func postArtifactToLedger(artifact ArtifactRecord) (bool, error) {
+func pushArtifactToLedger(artifact ArtifactRecord) (bool, error) {
 	var replyRecord ReplyType
 	var requestRecord ArtifactAddRecord
 
@@ -227,7 +229,8 @@ func createArtifactFromFile(file string) (ArtifactRecord, error) {
 	artifact.OpenChain = _FALSE
 	artifact.URIList = []URIRecord{} // initalize to the empty list
 	artifact._path = fullpath
-	artifact._newOrUpdated = true
+	artifact._notOnLedger = _TRUE
+	artifact._envelopeUUID = _NULL_UUID
 
 	return artifact, nil
 }
@@ -253,7 +256,7 @@ func createEnvelopeFromDirectory(directory string) ([]ArtifactRecord, error) {
 	envelope.UUID = getUUID()
 	envelope.Label = envelope.Name
 	envelope.Alias = envelope.Name
-	envelope.OpenChain = "false"
+	envelope.OpenChain = _FALSE
 	envelope.URIList = []URIRecord{} // initalize it the empty list
 	// add envelope to artifact list
 	artifacts = append(artifacts, envelope)
@@ -357,4 +360,217 @@ func getArtifactFileType(file string) string {
 	default:
 		return "other"
 	}
+}
+
+// displayStagingTable prints the staging table to the terminal.
+func displayStagingTable() {
+
+	fmt.Println()
+	ledgerNetwork := getLocalConfigValue(_LEDGER_NETWORK_KEY)
+	var color string
+	if ledgerNetwork == "" || ledgerNetwork == "tbd" {
+		color = _RED_FG
+		ledgerNetwork = "tdb"
+	} else {
+		color = _CYAN_FG
+	}
+	fmt.Printf("  Network: %s%s%s\n", color, ledgerNetwork, _COLOR_END)
+
+	// See if alias is available for part
+	part_uuid := getLocalConfigValue(_PART_KEY)
+	partAlias, err := getAliasUsingValue(part_uuid)
+	if partAlias != "" && err == nil {
+		//trimUUID(part_uuid, 5)
+		//part_uuid = partAlias + " [" + part_uuid + "]"
+		// part_uuid = partAlias + " " + trimUUID(part_uuid, 5)
+		part_uuid = partAlias
+	}
+	if part_uuid == _NULL_UUID {
+		part_uuid = _RED_FG + part_uuid + _COLOR_END
+	} else {
+		part_uuid = _GREEN_FG + part_uuid + _COLOR_END
+	}
+
+	// See if alias is available for envelope
+	envelope_uuid := getLocalConfigValue(_ENVELOPE_KEY)
+	envelopeUUID := envelope_uuid // We will need the unmodified uuid later in func.
+	envelopeAlias, err := getAliasUsingValue(envelope_uuid)
+	if envelopeAlias != "" && err == nil {
+		//envelope_uuid = envelopeAlias + " [" + envelope_uuid + "]"
+		//trimUUID(part_uuid, 5)
+		//envelope_uuid = envelopeAlias + " " + trimUUID(envelope_uuid, 5)
+		envelope_uuid = envelopeAlias
+	}
+
+	if envelope_uuid == _NULL_UUID {
+		envelope_uuid = _RED_FG + envelope_uuid + _COLOR_END
+		/////envelopeUUID = _NULL_UUID
+	} else {
+		envelope_uuid = _GREEN_FG + envelope_uuid + _COLOR_END
+	}
+
+	////fmt.Println("Staged artifacts to be committed:")
+
+	fmt.Println(" |--------------------------- Staging --------------------------------")
+	//fmt.Println(" |    			--- Staging ---")
+	//fmt.Println(" | ")
+	// Decide 'focus' - i.e., whether to display 'part',envelope' or both
+
+	//artifacts are grouped into three catagories:
+	// focus parts only = orphan
+	focus := getLocalConfigValue(_FOCUS_KEY)
+	switch focus {
+	case _PART_FOCUS:
+		fmt.Printf(" |     %s%s%s : %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
+		//// orphan only = !, set envelopeUUID to null
+		envelopeUUID = _NULL_UUID
+	case _ENVELOPE_FOCUS:
+		fmt.Printf(" | %s%s%s : %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
+		//// orphan + envelope = ! + *  envelopeUUID has correct uuid already.
+	case _BOTH_FOCUS:
+		fmt.Printf(" |     %s%s%s : %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
+		fmt.Printf(" | %s%s%s : %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
+		//// orphan + envelope = ! + *  envelopeUUID has correct uuid already.
+	case _NO_FOCUS:
+		// orphan only = !, set envelopeUUID to null
+		envelopeUUID = _NULL_UUID
+	default:
+	}
+
+	var displayArtifacts []ArtifactRecord
+	if focus == _PART_FOCUS || focus == _NO_FOCUS { //for part or none
+		displayArtifacts, err = getEnvelopeArtifactList(_NULL_UUID, true)
+	} else { // for envelope or both
+		displayArtifacts, err = getEnvelopeArtifactList(envelopeUUID, true)
+	}
+	if err != nil {
+		displayErrorMsg(err.Error())
+		return
+	}
+
+	fmt.Println(" |--------------------------------------------------------------------")
+
+	if len(displayArtifacts) == 0 {
+		// nothing waiting to post
+		///fmt.Printf("nothing to commit (use '%s add' to stage artifacts for posting to ledger)\n", filepath.Base(os.Args[0]))
+		/////w.Flush()
+		fmt.Println(" |")
+		if envelopeUUID == _NULL_UUID {
+			fmt.Println(" | [No atifacts have been placed into the staging area for above PART]")
+		} else {
+			fmt.Println(" | [No atifacts have been placed into the staging area for the above Envelope]")
+		}
+		fmt.Println()
+		fmt.Printf(" Use '%s add' to stage artifacts prior to posting to ledger\n", filepath.Base(os.Args[0]))
+		fmt.Println()
+		return // we're done
+	}
+
+	const padding = 0
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
+		tabwriter.Debug)
+	////fmt.Fprintf(w, " \t%s\t%s\t%s\t%s\t %s \n", " ----", " ----------", "------", "-----", "---------------------")
+	fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path<> or URI")
+	fmt.Fprintf(w, " \t%s\t%s \t%s\t%s\t %s\n", " ----", " ----------", "------", "-----", "---------------------")
+
+	var openChain string
+	var id, name, path string
+	for i := range displayArtifacts {
+		if displayArtifacts[i].ContentType == _ENVELOPE_TYPE {
+			continue // skip envelopes
+		}
+		id = strconv.Itoa(displayArtifacts[i]._ID)
+		name = displayArtifacts[i].Name
+		if len(name) > 40 {
+			name = name[0:39]
+		}
+		if isPathURL(displayArtifacts[i]._path) {
+			// path is a url link
+			path = displayArtifacts[i]._path
+		} else {
+			// It is a file, convert path relative to the .sparts working directory.
+			////fmt.Println("Path:", artifacts[i]._path)
+			path = getAbridgedFilePath(displayArtifacts[i]._path)
+		}
+		if displayArtifacts[i].OpenChain == _TRUE {
+			openChain = " Y"
+		} else {
+			openChain = " -"
+		}
+
+		statusChar := ""
+		if displayArtifacts[i]._envelopeUUID == _NULL_UUID {
+			statusChar = "*"
+		} else if displayArtifacts[i]._envelopeUUID == envelopeUUID && displayArtifacts[i]._notOnLedger == _TRUE {
+			statusChar = "+"
+		} else if displayArtifacts[i]._envelopeUUID == envelopeUUID && displayArtifacts[i]._notOnLedger == _FALSE {
+			statusChar = "="
+		}
+		id = statusChar + id
+		if len(id) < 3 {
+			id = " " + id
+		}
+		fmt.Fprintf(w, "\t %s\t %s \t%s\t %s\t %s\n", id, name, displayArtifacts[i].ContentType, openChain, path)
+	}
+
+	//fmt.Fprintf(w, "\n")
+
+	w.Flush()
+	//fmt.Println("  -----")
+	fmt.Println(" |--------------------------------------------------------------------")
+	//fmt.Println("  <>File paths are relative to the sparts working directory.")
+	//fmt.Println()
+	fmt.Println("    * New or updated and NOT assigned to a part or envelope")
+	fmt.Println("    + New or updated and ASSIGNED to the listed envelope")
+	fmt.Println("    = Resides on the ledger")
+	fmt.Printf("   tip: use '%s remove id1 id2 ...' to remove items from the staging area\n", filepath.Base(os.Args[0]))
+}
+
+func getEnvelopeArtifactList(uuid string, nonEnvelope bool) ([]ArtifactRecord, error) {
+	var envelopeList []ArtifactRecord
+	var artifact ArtifactRecord
+	artifactList, err := getArtifactListDB()
+	if err != nil {
+		return envelopeList, fmt.Errorf("sparts working database not accessible")
+	}
+	for _, artifact = range artifactList {
+		////fmt.Printf("%s: '%s' '%s' '%s'\n", artifact.Name, artifact._envelopeUUID, artifact._notOnLedger, artifact.OpenChain)
+		if artifact.UUID == uuid {
+			continue // skip - artifact is the envelope.
+		}
+		if artifact._envelopeUUID == uuid ||
+			(nonEnvelope && artifact._envelopeUUID == _NULL_UUID) {
+			envelopeList = append(envelopeList, artifact)
+		}
+	}
+	return envelopeList, nil
+}
+
+func createArtifactOfEnvelopeRelation(artifactUUID string, envelopeUUID string) error {
+	var replyRecord ReplyType
+	var requestRecord ArtifactOfEnvelopeRecord
+
+	// Check uuid
+	if !isValidUUID(artifactUUID) {
+		return fmt.Errorf("UUID '%s' for artifact is not in a valid format", artifactUUID)
+	}
+	if !isValidUUID(envelopeUUID) {
+		return fmt.Errorf("UUID '%s' for envelope is not in a valid format", envelopeUUID)
+	}
+
+	// TODO: Check for most important fields are filled in
+
+	// Initialize post record.
+	requestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+	requestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+	requestRecord.Relation.ArtifactUUID = artifactUUID
+	requestRecord.Relation.EnvelopeUUID = envelopeUUID
+
+	// Send artifact post request to ledger
+	err := sendPostRequest(_ARTIFACT_OF_ENV_API, requestRecord, replyRecord)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

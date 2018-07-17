@@ -66,9 +66,9 @@ func displaySupplierList() {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
 		tabwriter.Debug)
 	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "\t%s\t %s\t %s\n", " ------------------", "-------", "--------")
+	fmt.Fprintf(w, "\t%s\t %s\t %s\n", " ------------------", "-------", "------------------------------------")
 	fmt.Fprintf(w, "\t%s\t %s\t %s\n", "   Name  ", " Alias", "  UUID  ")
-	fmt.Fprintf(w, "\t%s\t %s\t %s\n", " ------------------", "-------", "--------")
+	fmt.Fprintf(w, "\t%s\t %s\t %s\n", " ------------------", "-------", "------------------------------------")
 
 	for k := range supplierList {
 		url := supplierList[k].Url

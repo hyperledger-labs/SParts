@@ -162,7 +162,7 @@ func setLocalConfigValue(key string, newValue string) error {
 	case _FOCUS_KEY:
 		configData.Focus = newValue
 	case _PART_KEY:
-		if isValidUUID(newValue) || strings.ToLower(newValue) == strings.ToLower(_NULL_PART) {
+		if isValidUUID(newValue) || strings.ToLower(newValue) == strings.ToLower(_NULL_UUID) {
 			configData.PartUUID = newValue
 		} else {
 			return fmt.Errorf("UUID syntax is not valid.")
