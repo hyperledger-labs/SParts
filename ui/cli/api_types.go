@@ -24,7 +24,7 @@ const (
 type ArtifactRecord struct {
 	UUID         string         `json:"uuid"`
 	Name         string         `json:"name"`
-	Alias        string         `json:"short_id,omitempty"`
+	Alias        string         `json:"alias,omitempty"`
 	Label        string         `json:"label,omitempty"` // Display name
 	Checksum     string         `json:"checksum"`
 	ContentType  string         `json:"content_type,omitempty"`
@@ -34,9 +34,13 @@ type ArtifactRecord struct {
 	URIList      []URIRecord    `json:"uri_list, omitempty"`
 	// Internal use only
 	_ID           int
-	_newOrUpdated bool
-	_path         string
-	_verified     bool
+	_contentPath  string
+	_envelopePath string
+	_envelopeUUID string
+	_onLedger     string
+
+	// for comparison
+	_verified bool
 }
 
 type ArtifactOfEnvelopeRecord struct {
@@ -48,9 +52,10 @@ type ArtifactOfEnvelopeRecord struct {
 type ArtifactEnvelopePair struct {
 	ArtifactUUID string `json:"artifact_uuid"`
 	EnvelopeUUID string `json:"envelope_uuid"`
+	Path         string `json:"path"`
 }
 
-type ArtifactOfPart struct {
+type ArtifactOfPartRecord struct {
 	PublicKey  string           `json:"public_key"`
 	PrivateKey string           `json:"private_key"`
 	Relation   ArtifactPartPair `json:"relation"`
@@ -117,6 +122,8 @@ type PartRecord struct {
 	Suppliers    []SupplierRecord `json:"suppliers,omitempty"`
 	Categories   []CategoryRecord `json:"categories,omitempty"`
 	// URIList      []URIRecord    `json:"uri_list,omitempty"`
+
+	_ID string
 }
 
 type PartItemRecord struct {
@@ -174,6 +181,12 @@ type SupplierRecord struct {
 	Alias string `json:"alias,omitempty"` // 1-15 alphanumeric characters
 	Url   string `json:"url,omitempty"`   // 2-3 sentence description
 	Parts []PartItemRecord
+}
+
+type SupplierAddRecord struct {
+	PublicKey  string         `json:"public_key"`
+	PrivateKey string         `json:"private_key"`
+	Supplier   SupplierRecord `json:"supplier"`
 }
 
 // ================================================

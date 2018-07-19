@@ -91,9 +91,11 @@ const (
 	_PART_FOCUS     = "PART"
 	_BOTH_FOCUS     = "BOTH"
 	_NO_FOCUS       = "NONE"
-	_NULL_PART      = "tbd"
 	_TRUE           = "true"
 	_FALSE          = "false"
+	_NULL_UUID      = "tbd"
+	_ROOT_ENV       = "root"
+	_ROOT_TOKEN     = "root:"
 )
 
 // Limits
@@ -112,6 +114,8 @@ const (
 	_LEDGER_PING_API       = "/ledger/api/v1/ping"
 	_PARTS_API             = "/ledger/api/v1/parts"
 	_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/supplier"
-	_SUPPLIERS_API         = "/ledger/api/v1/suppliers"
+	_SUPPLIER_API          = "/ledger/api/v1/suppliers"
 	_ARTIFACTS_URI_API     = "/ledger/api/v1/artifacts/uri"
+	_ARTIFACT_OF_ENV_API   = "/ledger/api/v1/envelope/artifact"
+	_ARTIFACT_OF_PART_API  = "/ledger/api/v1/artifacts/part"
 )

@@ -26,6 +26,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"text/tabwriter"
 	//"log"
 	//"path"
 	//"path/filepath"
@@ -47,7 +50,7 @@ type PartArtifactRecord struct {
 }
 
 // displayParts displays a list of parts
-func displayParts(partsList []PartItemRecord) {
+func displayPartsFromLedger(partsList []PartItemRecord) {
 	if len(partsList) == 0 {
 		// empty list
 		return
@@ -84,13 +87,58 @@ func displayParts(partsList []PartItemRecord) {
 
 }
 
-// Create part on ledger
-func createPart(name string, version string, label string, licensing string,
-	description string, url string, checksum string, uuid string) (bool, error) {
+// displayPartList displays a list of parts.
+func displayPartList() {
+	var list []PartRecord
+	list, err := getPartListFromDBWhere("", "") // "", "" sends back all parts in db
+	if checkAndReportError(err) {
+		return
+	}
+	// Let's check if the list of suppliers is empty
+	if len(list) == 0 {
+		fmt.Printf(" There are no parts cached locally. Try '%s synch ledger'\n", filepath.Base(os.Args[0]))
+		return
+	}
 
-	var part PartRecord
+	//Sort the list
+	//list = sortSupplierList(supplierList)
 
-	part.Name = name
+	const padding = 1
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
+		tabwriter.Debug)
+	//fmt.Fprintf(w, "\n")
+	//fmt.Println()
+	fmt.Println("    			     PARTS      ")
+	//fmt.Printf(" | Supplier: %s\n", "wr")
+	fmt.Fprintf(w, "\t%s\t %s\t %s\n", " ------------------", "-----------", "------------------------------------")
+	fmt.Fprintf(w, "\t%s\t %s\t %s\n", " Name  ", "   Alias ", "UUID  ")
+	fmt.Fprintf(w, "\t%s\t %s\t %s\n", " ------------------", "-----------", "------------------------------------")
+
+	for k := range list {
+		alias, _ := getAliasUsingValue(list[k].UUID)
+		// format alias field for nil values and for short length ones
+		if alias == "" {
+			alias = "<none>"
+		}
+		/*********
+		else if len(alias) < 4 {
+			alias = "  " + alias
+		}
+		****/
+
+		fmt.Fprintf(w, "\t %s\t %s\t %s\n", list[k].Name, alias, list[k].UUID)
+	}
+	//fmt.Println()
+	fmt.Fprintf(w, "\n")
+	w.Flush()
+}
+
+// pushPartToLedger adds part to the ledger
+func pushPartToLedger(part PartRecord) error {
+
+	////var part PartRecord
+	/****
+	part.Name = record.Name
 	part.Version = version
 	part.Alias = label
 	part.Label = label
@@ -99,22 +147,22 @@ func createPart(name string, version string, label string, licensing string,
 	part.Description = description
 	part.Checksum = checksum
 	part.UUID = uuid
+	*****************/
 
 	var requestRecord PartAddRecord
 	requestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
 	requestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
 	if requestRecord.PrivateKey == "" || requestRecord.PublicKey == "" {
-		return false, fmt.Errorf("Private and/or Public key(s) are not set \n Use 'sparts config' to set keys")
+		return fmt.Errorf("Private and/or Public key(s) are not set \n Use 'sparts config' to set keys")
 	}
 	requestRecord.Part = part
-
 	var replyRecord ReplyType
 	err := sendPostRequest(_PARTS_API, requestRecord, replyRecord)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	return true, nil
+	return nil
 }
 
 // createPartSupplierRelationship establishes a ledger relationship between
@@ -139,45 +187,6 @@ func createPartSupplierRelationship(part_uuid string, supplier_uuid string) (boo
 		return false, err
 	}
 	return true, nil
-
-	/******
-	partSupplierAsBytes, err := json.Marshal(part_supplier_info)
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return false, false
-	}
-
-	//fmt.Println (string(supplierAsBytes))
-	requestURL := "http://" + getLocalConfigValue(_LEDGER_ADDRESS_KEY) + "/api/sparts/ledger/mapping/PartSupplier"
-	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(partSupplierAsBytes))
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return false, false
-	}
-	req.Header.Set("X-Custom-Header", "PartToSupplier")
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return false, false
-	}
-
-	// Read response.
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return false, false
-	}
-	fmt.Println("PartToSupplier: response Body:", string(body))
-	//  {"status":"success"}
-	if strings.Contains(string(body), "success") {
-		return false, true
-	} else {
-		return false, false
-	}
-	****/
 }
 
 // createPartArtifactRelationship establishes a ledger relationship between
@@ -227,6 +236,17 @@ func createPartArtifactRelationship(part_uuid string, artifact_uuid string) bool
 	}
 }
 
+// Returns "" if error encountered.
+func getRootEnvelope(part PartRecord) string {
+	// e.g., "root:3568f20a-8faa-430e-7c65-e9fce9aa155d"
+	tokenSize := len(_ROOT_TOKEN) // e.g., _ROOT_TOKEN = "root:"
+	if len(part.Label) > tokenSize && part.Label[:tokenSize] == _ROOT_TOKEN {
+		// part.Label starts with token characters.
+		return part.Label[tokenSize:]
+	}
+	return ""
+}
+
 func getPartInfo(uuid string) (PartRecord, error) {
 	var part PartRecord
 	////part.Name = ""
@@ -271,7 +291,7 @@ func getPartInfo(uuid string) (PartRecord, error) {
 }
 
 // getPartList retrieves the list of all parts from the ledger.
-func getPartList() ([]PartRecord, error) {
+func getPartListFromLedger() ([]PartRecord, error) {
 	var partList = []PartRecord{}
 	err := sendGetRequest(_PARTS_API, &partList)
 	return partList, err
