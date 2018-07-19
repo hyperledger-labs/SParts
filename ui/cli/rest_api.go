@@ -105,6 +105,7 @@ func sendGetRequest(apiCall string, reply interface{}) error {
 	// __resultType := "*" + resultType // need to add prefix '*' to type string
 	// Need to remove '*' from type - e.g., *ListOf:SupplierRecord -> ListOf:SupplierRecord
 	expectedType := strings.Replace(getType(replyRecord), "*", "", 1)
+	////&& strings.ToLower(resultType) != strings.ToLower("ArtifactRecord")
 	if strings.ToLower(resultType) != strings.ToLower(expectedType) {
 		reply = nil
 		return fmt.Errorf("ledger response type '%s' is not valid. Expecting: '%s'", resultType, expectedType)

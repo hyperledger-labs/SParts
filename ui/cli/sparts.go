@@ -496,7 +496,7 @@ func compareRequest() {
 				}
 				continue
 			}
-		case "--part":
+		case "--env":
 			if len(os.Args[i:]) == 1 {
 				displayErrorMsg(fmt.Sprintf("Missing next argument: a directory was expected for argument %d", i))
 				return // we are done. exit.
@@ -509,7 +509,8 @@ func compareRequest() {
 				}
 				switch repoCount {
 				case 0:
-					artifactList1, err = getPartArtifacts(part_uuid)
+					//artifactList1, err = getPartArtifacts(part_uuid)
+					artifactList1, err = getEnvelopeArtifactsFromLedger(part_uuid)
 					if err != nil {
 						displayErrorMsg(err.Error())
 						return // we are done. exit.
@@ -521,7 +522,8 @@ func compareRequest() {
 					listTitle1 = "   Ledger**"
 					repoCount++ // we can accept up to two repositories (director and/or part)
 				case 1:
-					artifactList2, err = getPartArtifacts(part_uuid)
+					// artifactList2, err = getPartArtifacts(part_uuid)
+					artifactList2, err = getEnvelopeArtifactsFromLedger(part_uuid)
 					if err != nil {
 						displayErrorMsg(err.Error())
 						return // we are done. exit.
@@ -582,7 +584,7 @@ func compareRequest() {
 			// See if we have a match (that is not the main envelope)
 			if artifactList1[i].Checksum == artifactList2[k].Checksum {
 				// we have a match
-				fmt.Fprintf(w, " \t %s \t  %s \t  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), trimUUID(artifactList2[k].Checksum, 5))
+				fmt.Fprintf(w, " \t %s \t  %s \t  %s\t\n", artifactList1[i].Name2, trimUUID(artifactList1[i].Checksum, 5), trimUUID(artifactList2[k].Checksum, 5))
 				////fmt.Fprintf(w, "\t  %s\t %s\t %s\t %s\n", id, namea, artifacts[i].Type, path)
 				artifactList1[i]._verified = true
 				artifactList2[k]._verified = true
@@ -592,7 +594,7 @@ func compareRequest() {
 	// Now run through the first list to see if any unverified.
 	for i := 0; i < len(artifactList1); i++ {
 		if !artifactList1[i]._verified {
-			fmt.Fprintf(w, " \t %s \t  %s \t  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), noMatchStr)
+			fmt.Fprintf(w, " \t %s \t  %s \t  %s\t\n", artifactList1[i].Name2, trimUUID(artifactList1[i].Checksum, 5), noMatchStr)
 		}
 	}
 
@@ -1338,22 +1340,23 @@ func pushRequest() {
 			return
 		}
 		****/
-		alias, err := getAlias(partUUID)
-		if alias == "" || err != nil {
-			alias = partUUID
-		} else {
-			alias, err = getAliasValueFromDB(alias)
-			if err != nil {
-				alias = "part:" + partUUID
-			}
+		partAlias, err := getAliasUsingValue(partUUID)
+		if partAlias == "" || err != nil {
+			partAlias = partUUID
+		}
+		envelopeAlias, err := getAliasUsingValue(envelope.UUID)
+		if envelopeAlias == "" || err != nil {
+			envelopeAlias = envelope.UUID
 		}
 		err = createArtifactOfPartRelation(envelope.UUID, partUUID)
+		/****
 		if err != nil {
-			fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, alias, _COLOR_END)
+			fmt.Printf("	error pushing:  %s%s/%s%s\n", _RED_FG, partAlias, envelope.UUID, _COLOR_END)
 		} else {
 			// Report success.
-			fmt.Printf("	pushing: %s%s%s\n", _GREEN_FG, alias, _COLOR_END)
+			fmt.Printf("	pushing relation: %s%s/%s%s\n", _GREEN_FG, partAlias, envelope.UUID, _COLOR_END)
 		}
+		*****/
 	}
 	// Made sure the Envelope is on the ledger
 	// Now push the artifacts.Start by getting the artifact list
@@ -1368,9 +1371,7 @@ func pushRequest() {
 			continue // it's the envelope. skip
 		}
 		if artifact._onLedger == _FALSE {
-			// HEREX ok, err := pushArtifactToLedger(artifact)
-			ok := true
-			err = nil
+			ok, err := pushArtifactToLedger(artifact)
 			if !ok || err != nil {
 				// Error occurred
 				fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, artifact.Name, _COLOR_END)
@@ -1393,12 +1394,12 @@ func pushRequest() {
 
 				// Create relationship between envelope and artifact on ledger
 				////fmt.Println(" '%s' '%s' '%s'", artifact.UUID, envelopeUUID)
-				//HEREX err = createArtifactOfEnvelopeRelation(artifact.UUID, envelopeUUID, artifact._envelopePath)
+				err = createArtifactOfEnvelopeRelation(artifact.UUID, envelopeUUID, artifact._envelopePath)
 				if err != nil {
 					fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, artifact.Name, _COLOR_END)
 				} else {
 					// Report success.
-					fmt.Printf("	pushing: %s%s%s\n", _GREEN_FG, artifact.Name, _COLOR_END)
+					fmt.Printf("	pushing artifact: %s%s%s\n", _GREEN_FG, artifact.Name, _COLOR_END)
 				}
 			}
 		}
@@ -1782,24 +1783,35 @@ func seedRequest() {
 // Used for special testing
 func testRequest() {
 
-	envelopeUUID := os.Args[2]
+	artifact, err := getArtifactFromLedger("d2538468-9245-446c-4b6b-90068f2d8713")
 
-	partUUID := getLocalConfigValue(_PART_KEY)
-	if !isValidUUID(partUUID) {
-		displayErrorMsg("Default part UUID not properly set in local config file.")
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
-	alias, err := getAlias(partUUID)
-	if alias == "" || err != nil {
-		alias = partUUID
-	}
-	err = createArtifactOfPartRelation(envelopeUUID, partUUID)
-	if err != nil {
-		fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, alias, _COLOR_END)
-	} else {
-		// Report success.
-		fmt.Printf("	pushing: %s%s%s\n", _GREEN_FG, alias, _COLOR_END)
-	}
+
+	fmt.Println(len(artifact.ArtifactList))
+
+	/***********
+		envelopeUUID := os.Args[2]
+
+		partUUID := getLocalConfigValue(_PART_KEY)
+		if !isValidUUID(partUUID) {
+			displayErrorMsg("Default part UUID not properly set in local config file.")
+			return
+		}
+		alias, err := getAlias(partUUID)
+		if alias == "" || err != nil {
+			alias = partUUID
+		}
+		err = createArtifactOfPartRelation(envelopeUUID, partUUID)
+		if err != nil {
+			fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, alias, _COLOR_END)
+		} else {
+			// Report success.
+			fmt.Printf("	pushing: %s%s%s\n", _GREEN_FG, alias, _COLOR_END)
+		}
+	*******************/
 
 	/****
 	var part PartRecord

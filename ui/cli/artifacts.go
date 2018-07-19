@@ -150,6 +150,49 @@ func postEnvelopeToledger(artifacts []ArtifactRecord) bool {
 	}
 }
 
+func getArtifactFromLedger(artifactUUID string) (ArtifactRecord, error) {
+	var artifact = ArtifactRecord{}
+
+	//check that uuid is valid.
+	if !isValidUUID(artifactUUID) {
+		return artifact, fmt.Errorf("UUID '%s' is not in a valid format", artifactUUID)
+	}
+
+	err := sendGetRequest(_ARTIFACTS_API+"/"+artifactUUID, &artifact)
+
+	return artifact, err
+}
+
+// getPartArtifacts accepts a part uuid and returns a list of artifact records
+// for the part. The func does not display error messages - they are returned to
+// the calling routine.
+func getEnvelopeArtifactsFromLedger(envelopeUUID string) ([]ArtifactRecord, error) {
+
+	var envelope ArtifactRecord
+	var list = []ArtifactRecord{}
+	var err error
+
+	//check that uuid is valid.
+	if !isValidUUID(envelopeUUID) {
+		return list, fmt.Errorf("UUID '%s' is not in a valid format", envelopeUUID)
+	}
+
+	envelope, err = getArtifactFromLedger(envelopeUUID)
+	if err != nil {
+		return list, err
+	}
+
+	for _, artifactItem := range envelope.ArtifactList {
+		artifactRecord, err := getArtifactFromLedger(artifactItem.UUID)
+		if err != nil {
+			return list, err
+		}
+		list = append(list, artifactRecord)
+	}
+
+	return list, nil
+}
+
 // getPartArtifacts accepts a part uuid and returns a list of artifact records
 // for the part. The func does not display error messages - they are returned to
 // the calling routine.
