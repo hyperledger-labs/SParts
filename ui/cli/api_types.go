@@ -24,6 +24,7 @@ const (
 type ArtifactRecord struct {
 	UUID         string         `json:"uuid"`
 	Name         string         `json:"name"`
+	Name2        string         `json:"filename,omitempty"`
 	Alias        string         `json:"alias,omitempty"`
 	Label        string         `json:"label,omitempty"` // Display name
 	Checksum     string         `json:"checksum"`
@@ -41,6 +42,11 @@ type ArtifactRecord struct {
 
 	// for comparison
 	_verified bool
+}
+
+type ArtifactItem struct {
+	UUID string `json:"uuid"` // Artifact Universal Unique IDentifier
+	Path string `json:"path"` // Path of artifact within the envelope
 }
 
 type ArtifactOfEnvelopeRecord struct {
@@ -85,11 +91,6 @@ type ArtifactAddRecord struct {
 	PublicKey  string         `json:"public_key"`
 	PrivateKey string         `json:"private_key"`
 	Artifact   ArtifactRecord `json:"artifact"`
-}
-
-type ArtifactItem struct {
-	UUID string `json:"uuid"` // Artifact Universal Unique IDentifier
-	Path string `json:"path"` // Path of artifact within the envelope
 }
 
 type PartAddRecord struct {
