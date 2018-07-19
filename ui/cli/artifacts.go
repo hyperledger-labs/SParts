@@ -193,7 +193,7 @@ func createArtifactFromFile(file string) (ArtifactRecord, error) {
 	}
 	// Check if it is a directory. Expecting a file only.
 	if fileInfo.IsDir() {
-		return ArtifactRecord{}, fmt.Errorf("'%s' is a directory. Expecting file only", file)
+		return ArtifactRecord{}, fmt.Errorf("'%s' is a directory. Expecting file.", file)
 	}
 	// Extra check to make sure we have a file. IsRegular == true. May not be necessary
 	if !fileInfo.Mode().IsRegular() {
@@ -228,9 +228,10 @@ func createArtifactFromFile(file string) (ArtifactRecord, error) {
 	artifact.ContentType = getArtifactFileType(file)
 	artifact.OpenChain = _FALSE
 	artifact.URIList = []URIRecord{} // initalize to the empty list
-	artifact._path = fullpath
-	artifact._notOnLedger = _TRUE
+	artifact._contentPath = fullpath
+	artifact._onLedger = _FALSE
 	artifact._envelopeUUID = _NULL_UUID
+	artifact._envelopePath = "/" //default value
 
 	return artifact, nil
 }
@@ -239,7 +240,7 @@ func createArtifactFromFile(file string) (ArtifactRecord, error) {
 // contained within a designate directory. Func returns a list of artifact records
 // where the first represents the top level envelope and the remainining artifact
 // artifact records represent each of files in the directory (and sub directory)
-func createEnvelopeFromDirectory(directory string) ([]ArtifactRecord, error) {
+func createEnvelopeFromDirectory(directory string, openchainFlag bool) ([]ArtifactRecord, error) {
 
 	//var anyError error = nil
 	artifacts := []ArtifactRecord{}
@@ -257,6 +258,10 @@ func createEnvelopeFromDirectory(directory string) ([]ArtifactRecord, error) {
 	envelope.Label = envelope.Name
 	envelope.Alias = envelope.Name
 	envelope.OpenChain = _FALSE
+	if openchainFlag {
+		envelope.OpenChain = _TRUE
+	}
+	envelope._onLedger = _FALSE
 	envelope.URIList = []URIRecord{} // initalize it the empty list
 	// add envelope to artifact list
 	artifacts = append(artifacts, envelope)
@@ -282,17 +287,26 @@ func createEnvelopeFromDirectory(directory string) ([]ArtifactRecord, error) {
 			//create artifact record
 			a := ArtifactRecord{}
 
-			a._path, a.Name, _, a.ContentType = FilenameDirectorySplit(path)
-			a._path = strings.Replace(a._path, `\`, `/`, -1)
+			a._envelopePath, a.Name, _, a.ContentType = FilenameDirectorySplit(path)
+			a._envelopePath = strings.Replace(a._envelopePath, `\`, `/`, -1)
 			// replace envelope name is '.' - e.g.,  env1/dir1/file1 -> ./dir1/file1
-			a._path = strings.Replace(a._path, envelopeName, ``, 1)
+			a._envelopePath = strings.Replace(a._envelopePath, envelopeName, ``, 1)
 			//a.path =   "envelope://" + a.Path
+			//a._contentPath, _ = filepath.Abs(path)
+			a._contentPath = path
+			a._contentPath = strings.Replace(a._contentPath, `\`, `/`, -1)
 			a.UUID = getUUID()
 			a.Label = a.Name
 			a.Alias = a.Name
+			a._envelopeUUID = envelope.UUID
 			////checksum, _ := getFileSHA1(path)
 			a.Checksum, _ = getFileSHA1(path)
-			a.OpenChain = "false"
+			a.OpenChain = _FALSE
+			if openchainFlag {
+				a.OpenChain = _TRUE
+			}
+			a._onLedger = _FALSE
+			////a.OpenChain = "false"
 			a.URIList = []URIRecord{} // initalize it the empty list
 			artifacts = append(artifacts, a)
 		}
@@ -313,7 +327,7 @@ func createEnvelopeFromDirectory(directory string) ([]ArtifactRecord, error) {
 		}
 		var item ArtifactItem
 		item.UUID = artifact.UUID
-		item.Path = artifact._path
+		item.Path = artifact._contentPath
 		artifactItemList = append(artifactItemList, item)
 	}
 
@@ -412,12 +426,11 @@ func displayStagingTable() {
 	////fmt.Println("Staged artifacts to be committed:")
 
 	fmt.Println(" |--------------------------- Staging --------------------------------")
-	//fmt.Println(" |    			--- Staging ---")
-	//fmt.Println(" | ")
 	// Decide 'focus' - i.e., whether to display 'part',envelope' or both
 
 	//artifacts are grouped into three catagories:
 	// focus parts only = orphan
+
 	focus := getLocalConfigValue(_FOCUS_KEY)
 	switch focus {
 	case _PART_FOCUS:
@@ -437,12 +450,16 @@ func displayStagingTable() {
 	default:
 	}
 
+	/****
 	var displayArtifacts []ArtifactRecord
 	if focus == _PART_FOCUS || focus == _NO_FOCUS { //for part or none
 		displayArtifacts, err = getEnvelopeArtifactList(_NULL_UUID, true)
 	} else { // for envelope or both
 		displayArtifacts, err = getEnvelopeArtifactList(envelopeUUID, true)
+		////fmt.Printf("And Name is: '%s', and path is: %s\n", displayArtifacts[1].Name, displayArtifacts[1]._envelopePath)
 	}
+	*****/
+	displayArtifacts, err := getEnvelopeArtifactList(envelopeUUID, true)
 	if err != nil {
 		displayErrorMsg(err.Error())
 		return
@@ -470,7 +487,8 @@ func displayStagingTable() {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
 		tabwriter.Debug)
 	////fmt.Fprintf(w, " \t%s\t%s\t%s\t%s\t %s \n", " ----", " ----------", "------", "-----", "---------------------")
-	fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path<> or URI")
+	//fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path or URI")
+	fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path or URI")
 	fmt.Fprintf(w, " \t%s\t%s \t%s\t%s\t %s\n", " ----", " ----------", "------", "-----", "---------------------")
 
 	var openChain string
@@ -484,13 +502,14 @@ func displayStagingTable() {
 		if len(name) > 40 {
 			name = name[0:39]
 		}
-		if isPathURL(displayArtifacts[i]._path) {
+		if isPathURL(displayArtifacts[i]._contentPath) {
 			// path is a url link
-			path = displayArtifacts[i]._path
+			path = displayArtifacts[i]._contentPath
 		} else {
 			// It is a file, convert path relative to the .sparts working directory.
-			////fmt.Println("Path:", artifacts[i]._path)
-			path = getAbridgedFilePath(displayArtifacts[i]._path)
+			////fmt.Println("Path:", artifacts[i]._contentPath)
+			//path = getAbridgedFilePath(displayArtifacts[i]._contentPath)
+			path = displayArtifacts[i]._envelopePath
 		}
 		if displayArtifacts[i].OpenChain == _TRUE {
 			openChain = " Y"
@@ -498,12 +517,20 @@ func displayStagingTable() {
 			openChain = " -"
 		}
 
+		// Three states"
+		//  + added to staging table
+		//  > inserted into envelope
+		//  = pushed to ledger
 		statusChar := ""
 		if displayArtifacts[i]._envelopeUUID == _NULL_UUID {
-			statusChar = "*"
-		} else if displayArtifacts[i]._envelopeUUID == envelopeUUID && displayArtifacts[i]._notOnLedger == _TRUE {
-			statusChar = "+"
-		} else if displayArtifacts[i]._envelopeUUID == envelopeUUID && displayArtifacts[i]._notOnLedger == _FALSE {
+			// added but not save (inserted)
+			statusChar = ">"
+		} else if displayArtifacts[i]._envelopeUUID == envelopeUUID && displayArtifacts[i]._onLedger == _FALSE {
+			// inserted into envelope, but not pushed to ledge
+			statusChar = ">"
+			//path = displayArtifacts[i]._envelopePath
+		} else if displayArtifacts[i]._envelopeUUID == envelopeUUID && displayArtifacts[i]._onLedger == _TRUE {
+			// pushed to ledger
 			statusChar = "="
 		}
 		id = statusChar + id
@@ -520,33 +547,59 @@ func displayStagingTable() {
 	fmt.Println(" |--------------------------------------------------------------------")
 	//fmt.Println("  <>File paths are relative to the sparts working directory.")
 	//fmt.Println()
-	fmt.Println("    * New or updated and NOT assigned to a part or envelope")
-	fmt.Println("    + New or updated and ASSIGNED to the listed envelope")
-	fmt.Println("    = Resides on the ledger")
+	// fmt.Println("    * New or updated and NOT assigned to a part or envelope")
+	fmt.Println("    >  New or updated artifact not yet pushed to ledger")
+	fmt.Println("    =  Artifact that has been pushed to the ledger")
 	fmt.Printf("   tip: use '%s remove id1 id2 ...' to remove items from the staging area\n", filepath.Base(os.Args[0]))
 }
 
-func getEnvelopeArtifactList(uuid string, nonEnvelope bool) ([]ArtifactRecord, error) {
-	var envelopeList []ArtifactRecord
-	var artifact ArtifactRecord
+func getEnvelopeArtifactList(envelopeUUID string, useUnassigned bool) ([]ArtifactRecord, error) {
+	envelopeList := []ArtifactRecord{}
 	artifactList, err := getArtifactListDB()
 	if err != nil {
 		return envelopeList, fmt.Errorf("sparts working database not accessible")
 	}
-	for _, artifact = range artifactList {
-		////fmt.Printf("%s: '%s' '%s' '%s'\n", artifact.Name, artifact._envelopeUUID, artifact._notOnLedger, artifact.OpenChain)
-		if artifact.UUID == uuid {
+	for _, artifact := range artifactList {
+		if artifact.ContentType == _ENVELOPE_TYPE {
 			continue // skip - artifact is the envelope.
 		}
-		if artifact._envelopeUUID == uuid ||
+		envelopeList = append(envelopeList, artifact)
+		/****
+		if artifact._envelopeUUID == envelopeUUID ||
+			(useUnassigned && artifact.UUID == _NULL_UUID) {
+			envelopeList = append(envelopeList, artifact)
+		}
+		****/
+	}
+	return envelopeList, nil
+}
+
+/***************
+func getEnvelopeArtifactList(envelopeUUID string, nonEnvelope bool) ([]ArtifactRecord, error) {
+	var envelopeList []ArtifactRecord
+	//var artifact ArtifactRecord
+	artifactList, err := getArtifactListDB()
+	////here(2, err)
+	////fmt.Printf("XName is: '%s', path is: %s\n", artifactList[1].Name, artifactList[1].._onLedger)
+	if err != nil {
+		return envelopeList, fmt.Errorf("sparts working database not accessible")
+	}
+	for _, artifact := range artifactList {
+		if artifact.UUID == envelopeUUID {
+			continue // skip - artifact is the envelope.
+		}
+		if artifact._envelopeUUID == envelopeUUID ||
 			(nonEnvelope && artifact._envelopeUUID == _NULL_UUID) {
 			envelopeList = append(envelopeList, artifact)
+			////fmt.Printf("Name is: '%s', path is: %s\n", artifact.Name, artifact._envelopePath)
 		}
 	}
 	return envelopeList, nil
 }
 
-func createArtifactOfEnvelopeRelation(artifactUUID string, envelopeUUID string) error {
+****************/
+
+func createArtifactOfEnvelopeRelation(artifactUUID string, envelopeUUID string, path string) error {
 	var replyRecord ReplyType
 	var requestRecord ArtifactOfEnvelopeRecord
 
@@ -559,15 +612,42 @@ func createArtifactOfEnvelopeRelation(artifactUUID string, envelopeUUID string) 
 	}
 
 	// TODO: Check for most important fields are filled in
-
 	// Initialize post record.
 	requestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
 	requestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
 	requestRecord.Relation.ArtifactUUID = artifactUUID
 	requestRecord.Relation.EnvelopeUUID = envelopeUUID
-
+	requestRecord.Relation.Path = path
 	// Send artifact post request to ledger
 	err := sendPostRequest(_ARTIFACT_OF_ENV_API, requestRecord, replyRecord)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createArtifactOfPartRelation(artifactUUID string, partUUID string) error {
+	var replyRecord ReplyType
+	var requestRecord ArtifactOfPartRecord
+
+	// Check uuid
+	if !isValidUUID(artifactUUID) {
+		return fmt.Errorf("UUID '%s' for artifact is not in a valid format", artifactUUID)
+	}
+	if !isValidUUID(partUUID) {
+		return fmt.Errorf("UUID '%s' for envelope is not in a valid format", partUUID)
+	}
+
+	// TODO: Check for most important fields are filled in
+	// Initialize post record.
+	requestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+	requestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+	requestRecord.Relation.ArtifactUUID = artifactUUID
+	requestRecord.Relation.PartUUID = partUUID
+
+	// Send artifact post request to ledger
+	err := sendPostRequest(_ARTIFACT_OF_PART_API, requestRecord, replyRecord)
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,13 @@ import (
 	"text/tabwriter"
 )
 
+type EnvelopeRecord struct {
+	ArtifactId string
+	EnvelopeId string
+	Path       string
+	Stage      string
+}
+
 /*
 	The functions for the envelope routines can be found here.
 */

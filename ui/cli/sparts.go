@@ -170,7 +170,6 @@ func addRequest() {
 			// if number of remaining arguments is 2 OR
 			// if --openchain present AND remaining arguments therefore must be 3
 			if len(os.Args[2:]) == 2 || (openChain == _TRUE && len(os.Args[2:]) == 3) {
-				////fmt.Println("have a link - not implemented yet")
 				theURL := os.Args[3]
 				// process link
 				_, err := url.Parse(theURL)
@@ -191,14 +190,14 @@ func addRequest() {
 				artifact.ContentType = "url"
 				artifact.Checksum, _ = getStringSHA1(theURL)
 				artifact.URIList = []URIRecord{} // initalize to the empty list
-				artifact._path = theURL
+				artifact._contentPath = theURL
 				if openChain == _TRUE {
 					artifact.OpenChain = _TRUE
 				} else {
 					artifact.OpenChain = _FALSE
 				}
 				artifact._envelopeUUID = _NULL_UUID
-				artifact._notOnLedger = _TRUE
+				artifact._onLedger = _FALSE
 				// Add to database
 				err = addArtifactToDB(artifact)
 				if err != nil {
@@ -210,6 +209,40 @@ func addRequest() {
 			}
 			// else more than one argument. Set flag and proceed to process all the files
 			openChain = _TRUE
+			continue
+		case "--dir":
+			var directory string
+			// advance argument index to directory name
+			i++
+			if len(os.Args[i]) > 0 {
+				directory = os.Args[i]
+			}
+			// Make sure it is a directory
+			if !isDirectory(directory) {
+				displayErrorMsg(fmt.Sprintf("'%s' is not a directory", directory))
+				return // exit
+			}
+			// obtain envelope artifact list from directory (the last argument)
+			artifactList, err := createEnvelopeFromDirectory(directory, openChain == _TRUE)
+			if len(artifactList) == 0 || err != nil {
+				displayErrorMsg(fmt.Sprintf("cannot generate envelope from directory: '%s': %s", directory, err.Error()))
+				return // exit
+			}
+			for i, artifact := range artifactList {
+				// Assign the artifact envelope UUID for non-envelope artifacts.
+				if i == 0 {
+					continue // skip first (top directory record)
+				}
+				artifact._envelopeUUID = _NULL_UUID
+				// Add to database
+				artifactName := artifact._envelopePath + artifact.Name
+				err := addArtifactToDB(artifact)
+				if err != nil {
+					fmt.Printf("	error:  %s%s%s\n", _RED_FG, artifactName, _COLOR_END)
+				} else {
+					fmt.Printf("	adding: %s%s%s\n", _GREEN_FG, artifactName, _COLOR_END)
+				}
+			}
 			continue
 		case "--openchain", "-oc":
 			// If --openchain is the only argument, we need to
@@ -241,28 +274,25 @@ func addRequest() {
 			// else more than one argument. Set flag and proceed to process all the files
 			openChain = _TRUE
 			continue
+		default:
+			fmt.Println("artifactArg", artifactArg)
+			artifact, err = createArtifactFromFile(artifactArg)
+			if err != nil {
+				fmt.Printf("	error:  %s%s%s - %s\n", _RED_FG, artifactArg, _COLOR_END, err)
+				continue // go process next artifact
+			}
+			if openChain == _TRUE {
+				artifact.OpenChain = _TRUE
+			}
+			// Add to database
+			err = addArtifactToDB(artifact)
+			if err != nil {
+				fmt.Printf("	error:  %s%s%s\n", _RED_FG, artifactArg, _COLOR_END)
+			} else {
+				fmt.Printf("	adding: %s%s%s\n", _GREEN_FG, artifactArg, _COLOR_END)
+			}
+			// Go process next artifact (if any remaining)
 		}
-
-		// if directory - create list and insert
-
-		// if single file - create single Artifact record
-
-		artifact, err = createArtifactFromFile(artifactArg)
-		if err != nil {
-			fmt.Printf("	error:  %s%s%s - %s\n", _RED_FG, artifactArg, _COLOR_END, err)
-			continue // go process next artifact
-		}
-		if openChain == _TRUE {
-			artifact.OpenChain = _TRUE
-		}
-		// Add to database
-		err = addArtifactToDB(artifact)
-		if err != nil {
-			fmt.Printf("	error:  %s%s%s\n", _RED_FG, artifactArg, _COLOR_END)
-		} else {
-			fmt.Printf("	adding: %s%s%s\n", _GREEN_FG, artifactArg, _COLOR_END)
-		}
-		// Go process next artifact (if any remaining)
 	} // For loop
 }
 
@@ -454,12 +484,12 @@ func compareRequest() {
 				}
 				switch repoCount {
 				case 0:
-					artifactList1, _ = createEnvelopeFromDirectory(directory)
+					artifactList1, _ = createEnvelopeFromDirectory(directory, false)
 					artifactName1 = directory
 					listTitle1 = " Directory**"
 					repoCount++ // we can accept up to two repositories (director and/or part)
 				case 1:
-					artifactList2, _ = createEnvelopeFromDirectory(directory)
+					artifactList2, _ = createEnvelopeFromDirectory(directory, false)
 					artifactName2 = directory
 					listTitle2 = " Directory++"
 					repoCount++ // we can accept up to two repositories (director and/or part)
@@ -735,41 +765,67 @@ func envelopeRequest() {
 			displayErrorMsg("Incorrect number of arguments (expecting four). See sparts --envelope --help")
 			return
 		}
-	case "--save":
-		envelopeUUID := getLocalConfigValue(_ENVELOPE_KEY)
-		focus := getLocalConfigValue(_FOCUS_KEY)
-		if focus != _ENVELOPE_FOCUS && focus != _BOTH_FOCUS {
-			displayErrorMsg("Stage focus is not set to the envelope. See 'sparts focus --help'")
-			return
-		}
-		if envelopeUUID == _NULL_UUID {
-			displayErrorMsg("Default envelope uuid not set. See 'sparts config --help'")
-			return
-		}
-		artifactList, err := getEnvelopeArtifactList(_NULL_UUID, true)
-		if err != nil {
-			displayErrorMsg(err.Error())
-			return
-		}
-		for _, artifact := range artifactList {
-			// if artifact.UUID == envelopeUUID {
-			if artifact.ContentType == _ENVELOPE_TYPE {
-				continue // artifact is the envelope we are adding to
-			}
-			id := strconv.Itoa(artifact._ID)
-			err := updateArtifactInDB("_envelopeUUID", envelopeUUID, id)
-			if err != nil {
-				fmt.Printf("	error:     %s%s%s\n", _RED_FG, artifact.Name, _COLOR_END)
-			} else {
-				fmt.Printf("	inserting: %s%s%s\n", _GREEN_FG, artifact.Name, _COLOR_END)
-			}
-		}
-
 	case "--create":
-		if len(os.Args) > 3 {
-			displayErrorMsg(fmt.Sprintf("too many arguments specified. Try '%s %s --help'", filepath.Base(os.Args[0]), filepath.Base(os.Args[1])))
-			return
+		var err error
+		var envelope ArtifactRecord
+		// TODO: check that no extra Args are provided,
+		// last argument should be envelope name
+		// TODO: check syntax of envelope name
+		lastArg := os.Args[len(os.Args)-1] // make more readable - create lastArg variable.
+		envelope.Name = lastArg
+		envelope.UUID = getUUID()
+		envelope.Alias = envelope.Name
+		envelope.Label = envelope.Name
+		envelope.ContentType = _ENVELOPE_TYPE
+		envelope.Checksum, _ = getStringSHA1(envelope.Name)
+		envelope.ArtifactList = []ArtifactItem{}
+		envelope.URIList = []URIRecord{}
+		envelope._onLedger = _FALSE
+		envelope._envelopeUUID = _NULL_UUID
+		envelope._envelopePath = "/"
+		// check if openchain flag is present
+		envelope.OpenChain = _FALSE
+		for i := 2; i < len(os.Args); i++ {
+			if os.Args[i] == strings.ToLower("--openchain") {
+				envelope.OpenChain = _TRUE
+			}
 		}
+		// Add to database
+		envelopeName := envelope._envelopePath + envelope.Name
+		err = addArtifactToDB(envelope)
+		if err != nil {
+			fmt.Printf("	error:  %s%s%s\n", _RED_FG, envelopeName, _COLOR_END)
+			return // exit
+		} else {
+			fmt.Printf("	creating: %s%s%s\n", _GREEN_FG, envelopeName, _COLOR_END)
+		}
+		setLocalConfigValue(_ENVELOPE_KEY, envelope.UUID)
+		setAlias(envelope.Name, envelope.UUID)
+		return // exit
+
+		/*************
+		alias := ""
+		notDone := true
+		for notDone {
+			if getkeyboardYesNoReponse("Would you like to create an alias for the envelope (y/n)?") {
+				alias = getkeyboardReponse("Enter the alias you would like to use?")
+				if alias == "" {
+					continue
+				}
+				err := setAlias(alias, envelope.UUID)
+				if err != nil {
+					fmt.Printf("Error: Unable to create alias '%s'.\n", alias)
+				} else {
+					fmt.Printf("Use expression '%s%s' to reference this envelope\n", _ALIAS_TOKEN, alias)
+				}
+				notDone = false
+			} else {
+				notDone = false
+			}
+		}
+		*******************/
+
+		/***********
 		r, err := regexp.Compile("^[A-Za-z0-9_][A-Za-z0-9._-]*$")
 		name := ""
 		for name == "" {
@@ -782,50 +838,7 @@ func envelopeRequest() {
 				name = ""
 			}
 		}
-		uuid := getUUID()
-		alias := ""
-		notDone := true
-		for notDone {
-			if getkeyboardYesNoReponse("Would you like to create an alias for the envelope (y/n)?") {
-				alias = getkeyboardReponse("Enter the alias you would like to use?")
-				if alias == "" {
-					continue
-				}
-				err := setAlias(alias, uuid)
-				if err != nil {
-					fmt.Printf("Error: Unable to create alias '%s'.\n", alias)
-				} else {
-					fmt.Printf("Use expression '%s%s' to reference this envelope\n", _ALIAS_TOKEN, alias)
-				}
-				notDone = false
-			} else {
-				notDone = false
-			}
-		}
-
-		envelope := ArtifactRecord{}
-		envelope.Name = name
-		envelope.UUID = uuid
-		envelope.Alias = name
-		envelope.Label = name
-		envelope.ContentType = _ENVELOPE_TYPE
-		envelope.Checksum, _ = getStringSHA1(name)
-		envelope.OpenChain = _FALSE
-		envelope.ArtifactList = []ArtifactItem{}
-		envelope.URIList = []URIRecord{}
-		envelope._notOnLedger = _TRUE
-		envelope._envelopeUUID = _NULL_UUID
-
-		// err = addEnvelopeToDB(envelope)
-		err = addArtifactToDB(envelope)
-		if err != nil {
-			fmt.Printf("Not able to add Envelope '%s' the the db. \n", name)
-			displayErrorMsg(err.Error())
-		} else {
-			fmt.Printf("Envelope '%s' has been successfully created\n", name)
-		}
-		return
-
+		***********************/
 	default:
 		//fmt.Println (isHidden(os.Args[2]))
 		fmt.Printf("  '%s' is not a valid argument for %s\n", os.Args[2], os.Args[1])
@@ -844,8 +857,6 @@ func helpRequest() {
 func initRequest() {
 	var spartsDirectory string
 	var localConfigFile string
-	//var globalConfigFile string
-
 	//see if sub directory specified
 	if len(os.Args[2:]) > 1 {
 		// Too many arguments specified
@@ -897,10 +908,15 @@ func initRequest() {
 
 	// Initialize the database
 	initializeDB()
+	if _SEED_FUNCTION_ON {
+		seedRequest()
+	}
 }
 
 // handle: 'sparts part' command
 func partRequest() {
+	var part PartRecord
+
 	if len(os.Args[1:]) == 1 {
 		// Display help
 		fmt.Println(_PART_HELP_CONTENT)
@@ -911,51 +927,51 @@ func partRequest() {
 		// Let's first see if the supplier uuid is set in the config file.
 		// TODO: allow user to enter UUID if not set in local config.
 		supplierUUID := getLocalConfigValue("supplier_uuid")
-
-		if supplierUUID == "" {
-			fmt.Println("Supplier UUID not set in local the config file.")
+		if !isValidUUID(supplierUUID) {
+			fmt.Println("Supplier UUID not properly set in local the config file.")
 			return
 		}
-		// TODO: Check if UUID is correcrly formatted.
-
 		// Read from standard input.
 		scanner := bufio.NewScanner(os.Stdin)
-		name, version, label, license, description, url, uuid, checksum := "", "", "", "", "", "", "", ""
+		//name, version, alias, license, description, url, uuid, checksum := "", "", "", "", "", "", "", ""
 
 		fmt.Println("  -------------------------------------------------------------------------")
 		fmt.Println("  required field (*)")
-
-		for name == "" {
+		part.Name = ""
+		for part.Name == "" {
 			fmt.Print("  name(*): ")
 			scanner.Scan()
-			name = scanner.Text()
+			part.Name = scanner.Text()
 		}
 
 		fmt.Print("  version: ")
 		scanner.Scan()
-		version = scanner.Text()
+		part.Version = scanner.Text()
 
-		fmt.Print("  label (nickname): ")
+		fmt.Print("  alias (nickname): ")
 		scanner.Scan()
-		label = scanner.Text()
+		part.Alias = scanner.Text()
 
 		fmt.Print("  licensing: ")
 		scanner.Scan()
-		license = scanner.Text()
+		part.Licensing = scanner.Text()
 
 		fmt.Print("  description: ")
 		scanner.Scan()
-		description = scanner.Text()
+		part.Description = scanner.Text()
 
 		h := sha1.New()
 		h.Write([]byte("Some String"))
 		bs := h.Sum(nil)
-		checksum = fmt.Sprintf("%x", bs)
+		part.Checksum = fmt.Sprintf("%x", bs)
 
+		/***************
 		fmt.Print("  url: ")
 		scanner.Scan()
 		url = scanner.Text()
+		*******************/
 
+		/*************************************
 		fmt.Print("  UUID (auto generated if blank): ")
 		scanner.Scan()
 		uuid = scanner.Text()
@@ -964,54 +980,62 @@ func partRequest() {
 			uuid = getUUID()
 			//uuid ="f1c2d3..."
 		}
+		**************************************/
+		// generate part uuid
+		part.UUID = getUUID()
+		// Get part root UUID and store in Label for now.
+		part.Label = "root:" + getUUID()
 
 		fmt.Println("  \n  Do you want to proceed to create a part with the following values (y/n)?")
 		fmt.Println("  -------------------------------------------------------------------------")
-		fmt.Println("\tname      	= " + name)
-		fmt.Println("\tversion   	= " + version)
-		fmt.Println("\tlabel     	= " + label)
-		fmt.Println("\tlicensing 	= " + license)
-		fmt.Println("\turl       	= " + url)
-		fmt.Println("\tchecksum  	= " + checksum)
-		fmt.Println("\tuuid      	= " + uuid)
-		fmt.Println("\tdescription 	= " + description)
+		fmt.Println("\tname      	= " + part.Name)
+		fmt.Println("\tversion   	= " + part.Version)
+		fmt.Println("\talias     	= " + part.Alias)
+		fmt.Println("\tlicensing 	= " + part.Licensing)
+		fmt.Println("\tchecksum  	= " + part.Checksum)
+		fmt.Println("\tuuid      	= " + part.UUID)
+		fmt.Println("\tdescription 	= " + part.Description)
 
 		fmt.Print("(y/n)> ")
 		scanner.Scan()
 		confirmation := strings.ToLower(scanner.Text())
 		if confirmation == "y" || confirmation == "yes" {
-			fmt.Println("submitting part info ....")
-			ok, err := createPart(name, version, label, license, description, url, checksum, uuid)
-			//result := ""
-
-			if ok == false || err != nil {
-				if checkAndReportError(err) {
-					return
-				}
-			} else {
-				// Part was successfully registered with the legder
-				// Create relationship between part and supplier.
-				ok, err := createPartSupplierRelationship(uuid, supplierUUID)
-				if ok == true {
-					fmt.Println("Create part on ledger was SUCCESSFUL.")
-					if getkeyboardYesNoReponse("Would you like to create an alias for this part (y/n)?") {
-						alias := getkeyboardReponse("Enter the alias you would like to use?")
-						err := setAlias(alias, uuid)
-						if err != nil {
-							fmt.Printf("Error: Unable to create alias '%s'.\n", alias)
-							return
-						}
-						fmt.Printf("You can Use expression '%s%s' at the command line to reference the part\n", _ALIAS_TOKEN, alias)
+			// Add part to db
+			err := addPartToDB(part)
+			if err != nil {
+				displayErrorMsg(err.Error())
+				return
+			}
+			// Set default part in local config file
+			setLocalConfigValue(_PART_KEY, part.UUID)
+			fmt.Println("submitting part info to ledger ....")
+			err = pushPartToLedger(part)
+			if err != nil {
+				displayErrorMsg(err.Error())
+				return
+			}
+			// Part was successfully registered with the legder and added to the db.
+			// Now create th ledger relationship between part and supplier.
+			ok, err := createPartSupplierRelationship(part.UUID, supplierUUID)
+			if ok == true {
+				fmt.Println("Part creation on ledger was SUCCESSFUL.")
+				if getkeyboardYesNoReponse("Would you like to create an alias for this part (y/n)?") {
+					alias := getkeyboardReponse("Enter the alias you would like to use?")
+					err := setAlias(alias, part.UUID)
+					if err != nil {
+						fmt.Printf("Error: Unable to create alias '%s'.\n", alias)
 						return
 					}
-					return
-				} else {
-					fmt.Println("Create part-to-suppiler relationship ledger api call FAILED.")
-					if _DEBUG_DISPLAY_ON {
-						fmt.Println(err)
-					}
+					fmt.Printf("You can Use expression '%s%s' at the command line to reference the part\n", _ALIAS_TOKEN, alias)
 					return
 				}
+				return
+			} else {
+				fmt.Println("Create part-to-suppiler relationship ledger api call FAILED.")
+				if _DEBUG_DISPLAY_ON {
+					fmt.Println(err)
+				}
+				return
 			}
 		} else {
 			fmt.Println("Part creation request has been cancelled.")
@@ -1086,20 +1110,25 @@ func partRequest() {
 		// Display help
 		fmt.Println(_PART_HELP_CONTENT)
 	case "--list", "-l":
+		if len(os.Args) == 3 {
+			// get supplier part list from db (local cache)
+			displayPartList()
+			return
+		}
+
 		if len(os.Args[2:]) > 1 && (os.Args[3] == "--all" || os.Args[3] == "-a") {
 			////if len(os.Args[3:]) == 0 {
-			partsList, err := getPartList()
+			partsList, err := getPartListFromLedger()
 			if checkAndReportError(err) {
 				return
 			}
-			/////displayParts(partList)
 			partItemList := []PartItemRecord{}
 			var partItem PartItemRecord
 			for k := range partsList {
 				partItem.PartUUID = partsList[k].UUID
 				partItemList = append(partItemList, partItem)
 			}
-			displayParts(partItemList)
+			displayPartsFromLedger(partItemList)
 		} else {
 			// displaySupplierParts()
 			fmt.Println("  - Not Implemented Yet - list my (supplier) parts")
@@ -1167,6 +1196,11 @@ func pingRequest() {
 }
 
 func pushRequest() {
+	//var partRecord PartRecord
+	//var envelopeRecord ArtifactRecord
+	var envelopeUUID string
+	var partUUID string
+	var err error
 
 	if len(os.Args) == 3 && (strings.ToLower(os.Args[2]) == "--help" || strings.ToLower(os.Args[2]) == "-h") {
 		fmt.Println(_PUSH_HELP_CONTENT)
@@ -1187,18 +1221,79 @@ func pushRequest() {
 
 	// Ok, let's push the staging areas to the ledger
 
-	var envelopeUUID, partUUID string
 	// Check part and envelope are assigned as default.
-	if envelopeUUID = getLocalConfigValue(_ENVELOPE_KEY); envelopeUUID == _NULL_UUID {
-		displayErrorMsg(fmt.Sprintf("Default ENVELOPE uuid has NOT been assigned in local config file. See '%s %s --help'", filepath.Base(os.Args[0]), os.Args[1]))
-	}
-	if partUUID = getLocalConfigValue(_PART_KEY); partUUID == _NULL_UUID {
+	partUUID = getLocalConfigValue(_PART_KEY)
+	if partUUID == _NULL_UUID || !isValidUUID(partUUID) {
 		displayErrorMsg(fmt.Sprintf("Default PART uuid has NOT been assigned in local config file. See '%s %s --help'", filepath.Base(os.Args[0]), os.Args[1]))
+		return
 	}
+	/*****
+	// grab part record from local cache (db)
+	partList, err := getPartListFromDBWhere("UUID", partUUID)
+	// I expect one (and only one record).
+	if len(partList) == 0 || err != nil {
+		// no part found
+		displayErrorMsg("Cannot obtain default part uuid from local config file")
+		return // exit
+	}
+	// again, we expect partList to contain one (and only one record)
+	//partRecord = partList[0]
+	*****/
+
+	// Get envelope record
+	if envelopeUUID = getLocalConfigValue(_ENVELOPE_KEY); envelopeUUID == _NULL_UUID {
+		//displayErrorMsg(fmt.Sprintf("Default ENVELOPE uuid has NOT been assigned in local config file. See '%s %s --help'", filepath.Base(os.Args[0]), os.Args[1]))
+		//return
+		if !getkeyboardYesNoReponse("No envelope specified. Do you want to push to the part root envelope (y/n)?") {
+			fmt.Println("push request has been cancelled")
+			return
+		}
+		/*****
+		// will push to the part root envelope.
+		//
+		// grab root envelope id from part record
+		partRootEnvelopeUUID = getRootEnvelope(partRecord)
+		// make sure part root envelope id exists.
+		if !isValidUUID (partRootEnvelopeUUID) {
+			// Report error but user does not need to understand about the part root envelope
+			displayErrorMsg("Cannot obtain part root envelope record.")
+			if _DEBUG_DISPLAY_ON {
+				// print for easier debgging
+				displayErrorMsg("trouble locating the root envelope")
+			}
+			return // exit
+		}
+		envelopeUUID = partRootEnvelopeUUID
+		*****/
+	}
+
+	/***************
+		// grab part record from local cache (db)
+		partList, err := getPartListFromDBWhere("UUID", partUUID)
+		// I expect one (and only one record).
+		if len(partList) = 0 || err != nil {
+			// no part found
+			displayErrorMsg("Cannot obtain default part uuid from local config file")
+			return // exit
+		}
+		// again, we expect partList to contain one (and only one record)
+		partRecord := partList[0]
+		// grab root envelope id from part record
+		partRootEnvelopeUUID = getRootEnvelope()
+		// make sure part root envelope id exists.
+		if !isValidUUID (partRootEnvelopeUUID) {
+			// Report error but user does not need to understand about the part root envelope
+			displayErrorMsg("Cannot obtain part record.")
+			if _DEBUG_DISPLAY_ON {
+				// print for easier debgging
+				displayErrorMsg("trouble locating the root envelope")
+			}
+			return // exit
+		}
+	*****************/
 
 	// Get list of artifacts.
 	var displayArtifacts []ArtifactRecord
-	var err error
 
 	// getArfitactFromDB where uuid == envelopeID
 
@@ -1217,8 +1312,9 @@ func pushRequest() {
 	//fmt.Printf("Isss: '%s'  '%d'  '%s'\n", envelope.UUID, len(list), envelopeUUID)
 	//return
 	//ZZZZ
+	envelope._envelopePath = "/"
 
-	if envelope._notOnLedger == _TRUE {
+	if envelope._onLedger == _FALSE {
 		ok, err := pushArtifactToLedger(envelope)
 		if !ok || err != nil {
 			// Error occurred
@@ -1227,35 +1323,54 @@ func pushRequest() {
 			return
 		}
 		// So far so good. Update the envelope status in db.
-		envelope._notOnLedger = _FALSE
+		envelope._onLedger = _TRUE
 		id := strconv.Itoa(envelope._ID)
-		err = updateArtifactInDB("_notOnLedger", _FALSE, id)
+		err = updateArtifactInDB("_onLedger", _TRUE, id)
 		if err != nil {
 			if _DEBUG_DISPLAY_ON {
 				fmt.Printf("DB error updating db for: %s - \n", envelope.Name, err)
 			}
 		}
-		fmt.Printf("	pushing: %s%s%s\n", _GREEN_FG, envelope.Name, _COLOR_END)
+		/*****
+		partUUID := getLocalConfigValue(_PART_KEY)
+		if !isValidUUID(partUUID) {
+			displayErrorMsg("Default part UUID not properly set in local config file.")
+			return
+		}
+		****/
+		alias, err := getAlias(partUUID)
+		if alias == "" || err != nil {
+			alias = partUUID
+		} else {
+			alias, err = getAliasValueFromDB(alias)
+			if err != nil {
+				alias = "part:" + partUUID
+			}
+		}
+		err = createArtifactOfPartRelation(envelope.UUID, partUUID)
+		if err != nil {
+			fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, alias, _COLOR_END)
+		} else {
+			// Report success.
+			fmt.Printf("	pushing: %s%s%s\n", _GREEN_FG, alias, _COLOR_END)
+		}
 	}
 	// Made sure the Envelope is on the ledger
 	// Now push the artifacts.Start by getting the artifact list
-	displayArtifacts, err = getEnvelopeArtifactList(envelopeUUID, false)
+	displayArtifacts, err = getEnvelopeArtifactList(envelopeUUID, true)
 	if err != nil {
 		displayErrorMsg(err.Error())
-		if _DEBUG_DISPLAY_ON {
-			here(2, err)
-		}
 		return
 	}
-
 	for _, artifact := range displayArtifacts {
-		if artifact.ContentType == _ENVELOPE_TYPE || artifact.UUID == envelopeUUID {
-			continue // skip
+		//if artifact.ContentType == _ENVELOPE_TYPE || artifact.UUID == envelopeUUID {
+		if artifact.ContentType == _ENVELOPE_TYPE {
+			continue // it's the envelope. skip
 		}
-		//fmt.Println(artifact.Name, artifact._notOnLedger)
-		//continue
-		if artifact._notOnLedger == _TRUE {
-			ok, err := pushArtifactToLedger(artifact)
+		if artifact._onLedger == _FALSE {
+			// HEREX ok, err := pushArtifactToLedger(artifact)
+			ok := true
+			err = nil
 			if !ok || err != nil {
 				// Error occurred
 				fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, artifact.Name, _COLOR_END)
@@ -1263,15 +1378,22 @@ func pushRequest() {
 				continue // go get next artifact
 			} else {
 				// So far so good. Update the artifact status in db.
-				artifact._notOnLedger = _FALSE
+				artifact._onLedger = _TRUE
 				id := strconv.Itoa(artifact._ID)
-				err := updateArtifactInDB("_notOnLedger", _FALSE, id)
+				err = updateArtifactInDB("_onLedger", _TRUE, id)
 				if err != nil && _DEBUG_DISPLAY_ON {
-					fmt.Printf("DB error updating db for: %s - \n", artifact.Name, err)
+					fmt.Printf("DB error updating db onLedger status for: %s - \n", artifact.Name, err)
 				}
+				////artifact._envelopeUUID = envelope.UUID
+				// Assign artifact the envelope id
+				err = updateArtifactInDB("_envelopeUUID", envelope.UUID, id)
+				if err != nil && _DEBUG_DISPLAY_ON {
+					fmt.Printf("DB error updating db envelope UUID for: %s - \n", artifact.Name, err)
+				}
+
 				// Create relationship between envelope and artifact on ledger
 				////fmt.Println(" '%s' '%s' '%s'", artifact.UUID, envelopeUUID)
-				err = createArtifactOfEnvelopeRelation(artifact.UUID, envelopeUUID)
+				//HEREX err = createArtifactOfEnvelopeRelation(artifact.UUID, envelopeUUID, artifact._envelopePath)
 				if err != nil {
 					fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, artifact.Name, _COLOR_END)
 				} else {
@@ -1382,14 +1504,14 @@ func statusRequest() {
 				continue
 			}
 			var path string
-			if isPathURL(artifact._path) {
+			if isPathURL(artifact._contentPath) {
 				// path is a url
-				path = artifact._path
+				path = artifact._contentPath
 			} else {
 				// We have a file path (and not a url). Obtain abridged version
-				path = getAbridgedFilePath(artifact._path)
+				path = getAbridgedFilePath(artifact._contentPath)
 			}
-			path = artifact._path
+			path = artifact._contentPath
 
 			fmt.Println()
 			fmt.Println("|------------------------------------------------------")
@@ -1532,7 +1654,7 @@ func synchRequest() {
 		}
 	}
 	if newNodeFound == false {
-		fmt.Printf("  Not able to locate an active ledger node using the %s directory\n", _ATLAS)
+		fmt.Printf("  Not able to locate an active ledger node referring the %s directory\n", _ATLAS)
 	}
 }
 
@@ -1625,21 +1747,67 @@ func seedRequest() {
 	if err = setLocalConfigValue(_SUPPLIER_KEY, "3568f20a-8faa-430e-7c65-e9fce9aa155d"); err != nil {
 		fmt.Println("Seeding", err)
 	}
-	if err = setLocalConfigValue(_PART_KEY, "fd6462e4-9560-4c7f-614c-a87f8ff792b8"); err != nil {
+	//if err = setLocalConfigValue(_PART_KEY, "fd6462e4-9560-4c7f-614c-a87f8ff792b8"); err != nil {
+	if err = setLocalConfigValue(_PART_KEY, "tbd"); err != nil {
 		fmt.Println("Seeding", err)
 	}
 	setAlias("wr", "3568f20a-8faa-430e-7c65-e9fce9aa155d")
-	setAlias("p1", "fd6462e4-9560-4c7f-614c-a87f8ff792b8")
+	//setAlias("p1", "fd6462e4-9560-4c7f-614c-a87f8ff792b8")
+
 	setLocalConfigValue(_PRIVATE_KEY, "5K92SiHianMJRtqRiMaQ6xwzuYz7xaFRa2C8ruBQT6edSBg87Kq")
 	setLocalConfigValue(_PUBLIC_KEY, "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515")
 	setLocalConfigValue(_LEDGER_NETWORK_KEY, "zephyr-parts-network")
 
+	ok, err := pingServer(_LEDGER)
+	if !ok {
+		fmt.Println("Can't access ledger. Can't complete the 'seed' request")
+		return
+	}
+
+	list, err := getSupplierList()
+	if err == nil && len(list) == 0 {
+		supplier := SupplierRecord{}
+		supplier.Name = "Wind River"
+		supplier.Alias = "WR"
+		supplier.UUID = "3568f20a-8faa-430e-7c65-e9fce9aa155d"
+		supplier.Url = "http://www.windriver.com"
+		supplier.Parts = []PartItemRecord{}
+		err = pushSupplierToLedger(supplier)
+		if err != nil {
+			displayErrorMsg("encountered provlems adding Wind River supplier to ledger")
+		}
+	}
 }
 
 // Used for special testing
 func testRequest() {
 
-	updateArtifactInDB(os.Args[2], os.Args[3], os.Args[4])
+	envelopeUUID := os.Args[2]
+
+	partUUID := getLocalConfigValue(_PART_KEY)
+	if !isValidUUID(partUUID) {
+		displayErrorMsg("Default part UUID not properly set in local config file.")
+		return
+	}
+	alias, err := getAlias(partUUID)
+	if alias == "" || err != nil {
+		alias = partUUID
+	}
+	err = createArtifactOfPartRelation(envelopeUUID, partUUID)
+	if err != nil {
+		fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, alias, _COLOR_END)
+	} else {
+		// Report success.
+		fmt.Printf("	pushing: %s%s%s\n", _GREEN_FG, alias, _COLOR_END)
+	}
+
+	/****
+	var part PartRecord
+	part.Label = os.Args[2]
+	fmt.Println(getRootEnvelope(part))
+	****/
+
+	////updateArtifactInDB(os.Args[2], os.Args[3], os.Args[4])
 
 	/******
 

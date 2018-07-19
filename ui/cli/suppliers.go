@@ -39,7 +39,7 @@ import (
 func getSupplierList() ([]SupplierRecord, error) {
 
 	var supplierList = []SupplierRecord{}
-	err := sendGetRequest(_SUPPLIERS_API, &supplierList)
+	err := sendGetRequest(_SUPPLIER_API, &supplierList)
 	return supplierList, err
 }
 
@@ -106,7 +106,7 @@ func getSupplierInfo(uuid string) (SupplierRecord, error) {
 	// return supplier, err
 
 	replyAsBytes, err := httpGetAPIRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY),
-		_SUPPLIERS_API+"/"+uuid)
+		_SUPPLIER_API+"/"+uuid)
 	if err != nil {
 		if _DEBUG_DISPLAY_ON {
 			displayErrorMsg(err.Error())
@@ -157,8 +157,27 @@ func displaySupplier(uuid string) {
 		// Supplier has no parts
 		fmt.Println("  Parts  : <none> ")
 	} else {
-		displayParts(supplier.Parts)
+		displayPartsFromLedger(supplier.Parts)
 	}
+}
+
+func pushSupplierToLedger(supplier SupplierRecord) error {
+
+	var requestRecord SupplierAddRecord
+
+	requestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+	requestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+	if requestRecord.PrivateKey == "" || requestRecord.PublicKey == "" {
+		return fmt.Errorf("Private and/or Public key(s) are not set \n Use 'sparts config' to set keys")
+	}
+	requestRecord.Supplier = supplier
+	var replyRecord ReplyType
+	err := sendPostRequest(_SUPPLIER_API, requestRecord, replyRecord)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // createSupplier create a supplier and adds it to the ledger.

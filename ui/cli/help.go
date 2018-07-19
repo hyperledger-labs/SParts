@@ -105,9 +105,9 @@ Examples:
 
 const _ALIAS_HELP_CONTENT = `usage: sparts alias <name> <value>
 Examples:
-   sparts alias ibm 8879f843-bd68-4ebd-6cee-3e7fe91e3bcd /* company uuid */
+   sparts alias --set ibm 8879f843-bd68-4ebd-6cee-3e7fe91e3bcd /* company uuid */
 
-   sparts alias debian-14.1.1 0f3d2681-1272-4aaa-7dea-658942dcecfe /* part uuid */
+   sparts alias --set debian-14.1.1 0f3d2681-1272-4aaa-7dea-658942dcecfe /* part uuid */
 
    sparts alias --list  /* List all the alais definitions */
 `

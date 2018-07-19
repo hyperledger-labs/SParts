@@ -21,8 +21,8 @@ package main
 
 //Runtime debug flags
 const (
-	_DEBUG_DISPLAY_ON  = true
-	_DEBUG_REST_API_ON = true
+	_DEBUG_DISPLAY_ON  = false
+	_DEBUG_REST_API_ON = false
 	_SEED_FUNCTION_ON  = true
 )
 
@@ -94,7 +94,8 @@ const (
 	_TRUE           = "true"
 	_FALSE          = "false"
 	_NULL_UUID      = "tbd"
-	//_NULL_PART      = "tbd"
+	_ROOT_ENV       = "root"
+	_ROOT_TOKEN     = "root:"
 )
 
 // Limits
@@ -113,7 +114,8 @@ const (
 	_LEDGER_PING_API       = "/ledger/api/v1/ping"
 	_PARTS_API             = "/ledger/api/v1/parts"
 	_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/supplier"
-	_SUPPLIERS_API         = "/ledger/api/v1/suppliers"
+	_SUPPLIER_API          = "/ledger/api/v1/suppliers"
 	_ARTIFACTS_URI_API     = "/ledger/api/v1/artifacts/uri"
 	_ARTIFACT_OF_ENV_API   = "/ledger/api/v1/envelope/artifact"
+	_ARTIFACT_OF_PART_API  = "/ledger/api/v1/artifacts/part"
 )
