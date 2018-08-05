@@ -92,6 +92,21 @@ func displayErrorMsg(msg string) {
 	fmt.Printf("error: %s\n", msg)
 }
 
+/****************
+func displayStruct(data interface{}) {
+
+	s := reflect.ValueOf(&data).Elem()
+	typeOfT := s.Type()
+
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		fmt.Printf("%d: %s %s = %v\n", i,
+			typeOfT.Field(i).Name, f.Type(), f.Interface())
+	}
+
+}
+***********************/
+
 // Obtain abridge version of the file's path
 func getAbridgedFilePath(fullpath string) (abridedPath string) {
 
