@@ -398,14 +398,10 @@ func configRequest() {
 		fmt.Println(_CONFIG_HELP_CONTENT)
 	case "--list", "-l":
 		fmt.Println()
-		fmt.Println(" -------------")
-		fmt.Println(" --- Local ---")
-		fmt.Println(" -------------")
 		displayLocalConfigData()
-		fmt.Println(" --------------")
-		fmt.Println(" --- Global ---")
-		fmt.Println(" --------------")
+		fmt.Println()
 		displayGlobalConfigData()
+		fmt.Println()
 	case "--local":
 		if len(os.Args[2:]) == 1 {
 			// only --local option, no third option
@@ -417,7 +413,9 @@ func configRequest() {
 		// Have at least arguments.
 		switch os.Args[3] {
 		case "--list", "-l":
+			fmt.Println()
 			displayLocalConfigData()
+			fmt.Println()
 		default:
 			if len(os.Args[1:]) == 4 {
 				// Request to assign a field (os.Args[3]) a new value (os.Args[4]).
@@ -439,7 +437,9 @@ func configRequest() {
 		// We have at least three arguments.
 		switch os.Args[3] {
 		case "--list":
+			fmt.Println()
 			displayGlobalConfigData()
+			fmt.Println()
 		case _ATLAS_ADDRESS_KEY,
 			_USER_NAME_KEY,
 			_USER_EMAIL_KEY:
@@ -1534,7 +1534,7 @@ func statusRequest() {
 
 		}
 	default:
-		fmt.Printf("  error - '%s'is not a valid argument for %s\n", os.Args[1], filepath.Base(os.Args[0]))
+		fmt.Printf("  error - '%s'is not a valid argument for %s\n", os.Args[2], filepath.Base(os.Args[0]))
 		return
 	} // end of switch
 }

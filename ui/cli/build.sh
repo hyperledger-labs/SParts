@@ -17,3 +17,4 @@
 # Set the bin directory to someplace within your $PATH (otherwise build in local directory)
 BIN_DIR="."
 go build -o $BIN_DIR/sparts
+cp sparts spa

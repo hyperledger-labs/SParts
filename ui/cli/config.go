@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
+	"reflect"
 	"strings"
 	"text/tabwriter"
 
@@ -36,17 +37,14 @@ import (
 // Note: struct fields must be public in order for unmarshal to
 // correctly populate the data.
 type localConfig struct {
-	LookUp       string `json:"lookup"`
-	EnvelopeUUID string `json:"envelope_uuid"`
-	Focus        string `json:"focus"`
-	Node         struct {
-		LedgerAddress    string `json:"ledger_address"`
-		ConductorAddress string `json:"conductor_address"`
-	} `json:"node"`
+	AutoSynch     string `json:"auto_synch"`
+	EnvelopeUUID  string `json:"envelope_uuid"`
+	Focus         string `json:"focus"`
+	LedgerAddress string `json:"ledger_address"`
+	LedgerNetwork string `json:"ledger_network"`
 	PartUUID      string `json:"part_uuid"`
 	PrivateKey    string `json:"private_key"`
 	PublicKey     string `json:"public_key"`
-	LedgerNetwork string `json:"ledger_network"`
 	SupplierUUID  string `json:"supplier_uuid"`
 }
 
@@ -55,24 +53,33 @@ type localConfig struct {
 
 // local config file field names
 const (
-	_CONDUCTOR_ADDRESS_KEY = "node.conductor_address"
-	_ENVELOPE_KEY          = "envelope_uuid"
-	_FOCUS_KEY             = "focus"
-	_LEDGER_ADDRESS_KEY    = "node.ledger_address"
-	_LEDGER_NETWORK_KEY    = "ledger_network"
-	_SUPPLIER_KEY          = "supplier_uuid"
-	_PART_KEY              = "part_uuid"
-	_PRIVATE_KEY           = "private_key"
-	_PUBLIC_KEY            = "public_key"
+	//_CONDUCTOR_ADDRESS_KEY = "node.conductor_address"
+	_AUTO_SYNCH_KEY     = "auto_synch"
+	_ENVELOPE_KEY       = "envelope_uuid"
+	_FOCUS_KEY          = "focus"
+	_LEDGER_ADDRESS_KEY = "node.ledger_address"
+	_LEDGER_NETWORK_KEY = "ledger_network"
+	_SUPPLIER_KEY       = "supplier_uuid"
+	_PART_KEY           = "part_uuid"
+	_PRIVATE_KEY        = "private_key"
+	_PUBLIC_KEY         = "public_key"
 )
 
 // global Config file format
+
+/***********
 type globalConfig struct {
 	Atlas string `json:"atlas_address"`
 	User  struct {
 		Name  string `json:"name"`
 		Email string `json:"email"`
 	} `json:"user"`
+}
+************/
+type globalConfig struct {
+	Atlas     string `json:"atlas_address"`
+	UserName  string `json:"user_name"`
+	UserEmail string `json:"user_email"`
 }
 
 // The default gola config file contents can be found in build_config.go
@@ -81,8 +88,8 @@ type globalConfig struct {
 // global config file field names
 const (
 	_ATLAS_ADDRESS_KEY = "atlas_address"
-	_USER_NAME_KEY     = "user.name"
-	_USER_EMAIL_KEY    = "user.email"
+	_USER_NAME_KEY     = "user_name"
+	_USER_EMAIL_KEY    = "user_email"
 )
 
 type AlisaRecord struct {
@@ -109,26 +116,24 @@ func getLocalConfigValue(key string) string {
 		return ""
 	}
 	switch strings.ToLower(key) {
-	case "node.ledger_address":
-		return configData.Node.LedgerAddress
+	case _LEDGER_ADDRESS_KEY:
+		return configData.LedgerAddress
 	case _ENVELOPE_KEY:
 		return configData.EnvelopeUUID
 	case _FOCUS_KEY:
 		return configData.Focus
-	case "node.conductor_address":
-		return configData.Node.ConductorAddress
 	case _PART_KEY:
 		return configData.PartUUID
 	case _PRIVATE_KEY:
 		return configData.PrivateKey
 	case _PUBLIC_KEY:
 		return configData.PublicKey
-	case "ledger_network":
+	case _LEDGER_NETWORK_KEY:
 		return configData.LedgerNetwork
-	case "supplier_uuid":
+	case _SUPPLIER_KEY:
 		return configData.SupplierUUID
-	case "lookup":
-		return configData.LookUp
+	case _AUTO_SYNCH_KEY:
+		return configData.AutoSynch
 	}
 	return ""
 }
@@ -151,11 +156,11 @@ func setLocalConfigValue(key string, newValue string) error {
 		return err
 	}
 	switch strings.ToLower(key) {
-	case "node.ledger_address":
-		configData.Node.LedgerAddress = newValue
-	case "node.conductor_address":
-		configData.Node.ConductorAddress = newValue
-	case "ledger_network":
+	case _LEDGER_ADDRESS_KEY:
+		configData.LedgerAddress = newValue
+	//case "node.conductor_address":
+	//	configData.Node.ConductorAddress = newValue
+	case _LEDGER_NETWORK_KEY:
 		configData.LedgerNetwork = newValue
 	case _ENVELOPE_KEY:
 		configData.EnvelopeUUID = newValue
@@ -177,8 +182,8 @@ func setLocalConfigValue(key string, newValue string) error {
 		} else {
 			return fmt.Errorf("UUID syntax is not valid.")
 		}
-	case "lookup":
-		configData.LookUp = newValue
+	case _AUTO_SYNCH_KEY:
+		configData.AutoSynch = newValue
 	default:
 		return fmt.Errorf("  '%s' is not a validate local configuration value\n", key)
 	}
@@ -225,25 +230,22 @@ func displayLocalConfigData() {
 		return
 	}
 
-	d, err := yaml.Marshal(&data)
-	if err != nil {
-		fmt.Printf("error: %v", err)
+	s := reflect.ValueOf(&data).Elem()
+	typeOfT := s.Type()
+	fmt.Println("|-----------------------------------------------------")
+	fmt.Println("|	Local Configuration")
+	fmt.Println("|-----------------------------------------------------")
+	////fmt.Printf("| %sArtifact%s: %s%s%s\n", _WHITE_FG, _COLOR_END, _CYAN_FG, artifact.Name, _COLOR_END)
+	const padding = 0
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
+	////fmt.Fprintf(w, "\t%s\t%s\n", " --------------", "-----------------------------------------")
+	//fmt.Fprintf(w, "\t %s\t %s\n", "Name", artifact.Name)
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		//fmt.Fprintf(w, "\t %s\t %v\n", typeOfT.Field(i).Name, f.Interface())
+		fmt.Fprintf(w, "\t %s\t %v\n", typeOfT.Field(i).Tag.Get("json"), f.Interface())
 	}
-
-	fmt.Printf("%s\n", string(d))
-	/******
-	fmt.Println()
-	v := reflect.ValueOf(data)
-	values := make([]interface{}, v.NumField())
-	typeOfData := v.Type()
-	/****
-	for i := 0; i < v.NumField(); i++ {
-		values[i] = v.Field(i).Interface()
-		fmt.Printf("%s = %s\n", typeOfData.Field(i).Name, values[i])
-	}
-
-	//fmt.Println(values)
-	*****/
+	w.Flush()
 }
 
 //----------------------------------------------
@@ -268,10 +270,10 @@ func getGlobalConfigValue(value string) string {
 		return configData.Atlas
 
 	case _USER_NAME_KEY:
-		return configData.User.Name
+		return configData.UserName
 
 	case _USER_EMAIL_KEY:
-		return configData.User.Email
+		return configData.UserEmail
 	}
 	return ""
 }
@@ -322,9 +324,9 @@ func setGlobalConfigValue(field string, newValue string) {
 	case _ATLAS_ADDRESS_KEY:
 		configData.Atlas = newValue
 	case "user.name":
-		configData.User.Name = newValue
+		configData.UserName = newValue
 	case "user.email":
-		configData.User.Email = newValue
+		configData.UserEmail = newValue
 	}
 	// Save updated config file
 	d, err := yaml.Marshal(&configData)
@@ -362,11 +364,33 @@ func displayGlobalConfigData() {
 		return
 	}
 
-	d, err := yaml.Marshal(&data)
+	////d, err := yaml.Marshal(&data)
 	if err != nil {
 		fmt.Printf("error: %v", err)
 	}
-	fmt.Printf("%s\n", string(d))
+	//fmt.Printf("%s\n", string(d))
+
+	s := reflect.ValueOf(&data).Elem()
+	typeOfT := s.Type()
+
+	fmt.Println("|-----------------------------------------------------")
+	fmt.Println("|	Global Configuration")
+	fmt.Println("|-----------------------------------------------------")
+	const padding = 0
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
+	//fmt.Fprintf(w, "\t%s\t%s\n", " --------------", "-----------------------------------------")
+	//fmt.Fprintf(w, "\t %s\t %s\n", "Name", artifact.Name)
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		////value := f.Interface()
+		////fmt.Println(f.Type())
+		////fmt.Println(len(f.Interface()))
+		////fmt.Println(getType(f.Interface()))
+		////fmt.Println(val.Type().Field(i).Tag.Get("json")
+		//fmt.Fprintf(w, "\t %s\t %v\n", typeOfT.Field(i).Name, f.Interface())
+		fmt.Fprintf(w, "\t %s\t %v\n", typeOfT.Field(i).Tag.Get("json"), f.Interface())
+	}
+	w.Flush()
 }
 
 //----------------------------------------------
