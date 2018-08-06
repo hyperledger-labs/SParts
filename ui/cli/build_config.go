@@ -27,25 +27,22 @@ const (
 )
 
 // This is the default settings fot the local configuration
-const _LOCAL_CONFIG_FILE_CONTENT = `look_up: false
-part_uuid: tbd
+const _LOCAL_CONFIG_FILE_CONTENT = `auto_synch: false
 envelope_uuid: tbd
 focus: BOTH
-node:
-  ledger_address:
-  conductor_address:
-public_key:
+ledger_address:
+part_uuid: tbd
 private_key:
-ledger_network: zephyr-parts-network
+public_key:
+ledger_network: sparts-test-network
 supplier_uuid:
 `
 
 // This is the default settings fot the global configuration
 const _GLOBAL_CONFIG_FILE_CONTENT = `
 atlas_address: https://spartshub.org
-user:
-	email:
-	name:
+user_email
+user_name
 `
 
 const (
