@@ -1742,9 +1742,12 @@ func seedRequest() {
 	//os.Args = append(os.Args, "test3") // 3
 	//os.Args = append(os.Args, "test4") // 4
 
-	setLocalConfigValue(_LEDGER_NETWORK_KEY, "zephyr-parts-network")
+	setLocalConfigValue(_LEDGER_NETWORK_KEY, "sparts-test-network")
+	setLocalConfigValue(_PRIVATE_KEY, "5K92SiHianMJRtqRiMaQ6xwzuYz7xaFRa2C8ruBQT6edSBg87Kq")
+	setLocalConfigValue(_PUBLIC_KEY, "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515")
+	////setLocalConfigValue(_LEDGER_NETWORK_KEY, "zephyr-parts-network")
 	synchRequest()
-	setLocalConfigValue(_PART_KEY, "zephyr-parts-network")
+	/////setLocalConfigValue(_PART_KEY, "zephyr-parts-network")
 	if err = setLocalConfigValue(_SUPPLIER_KEY, "3568f20a-8faa-430e-7c65-e9fce9aa155d"); err != nil {
 		fmt.Println("Seeding", err)
 	}
@@ -1754,10 +1757,6 @@ func seedRequest() {
 	}
 	setAlias("wr", "3568f20a-8faa-430e-7c65-e9fce9aa155d")
 	//setAlias("p1", "fd6462e4-9560-4c7f-614c-a87f8ff792b8")
-
-	setLocalConfigValue(_PRIVATE_KEY, "5K92SiHianMJRtqRiMaQ6xwzuYz7xaFRa2C8ruBQT6edSBg87Kq")
-	setLocalConfigValue(_PUBLIC_KEY, "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515")
-	setLocalConfigValue(_LEDGER_NETWORK_KEY, "zephyr-parts-network")
 
 	ok, err := pingServer(_LEDGER)
 	if !ok {
@@ -1775,7 +1774,7 @@ func seedRequest() {
 		supplier.Parts = []PartItemRecord{}
 		err = pushSupplierToLedger(supplier)
 		if err != nil {
-			displayErrorMsg("encountered provlems adding Wind River supplier to ledger")
+			displayErrorMsg("encountered problem adding Wind River supplier to ledger")
 		}
 	}
 }

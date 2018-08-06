@@ -1,13 +1,17 @@
-# User Guide
+# Ledger Node Installation Guide
+We provide a guidance on how to install a ledger node on different cloud platforms. The first platform we support is Amazon's Web Services (AWS). We are planning on supporting Microsoft's Azure and Google Cloud platforms in the near future. 
+
+
+
 ## Installation on AWS
 
 ### Configure the AWS instance
 
-Select any Linux based Amazon Machine Image. In this example we are going to use Ubuntu Server 16.04 (ami-5e8bb23b).
+Go to the AWS EC2 dashboard and select any Linux based Amazon Machine Image. In this example we use Ubuntu Server 16.04. 
 
 We recommend these minimum specifications for [TBA].
 
-Add the following inbound rules for the instance's security group.
+Add the following **Inbound** rules for the instance's security group.
 
 ```
 Port: 818               Destination: 0.0.0.0/0          Description: API
@@ -15,23 +19,17 @@ Port: 4004              Destination: 0.0.0.0/0          Description: Validator
 Port: 22                Destination: 0.0.0.0/0          Description: SSH
 ```
 
-ssh into your AWS instance (default user name is ubuntu)
+Login into the ssh into your AWS instance (default user name for  an Ubuntu Server is "ubuntu"). You can use ssh on linux and putty from windows. 
 
 ### Install Docker and the Container
 
-Follow this guide to install docker: https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-16-04
+Follow this guide to install docker (follow Step 1): https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-16-04
 
-Once the Docker service is running.
-
-
-
-Pull the container from  dockerhub [https://hub.docker.com/r/sameerfarooq/sparts-test/]
+Once the Docker service is running pull the container from  dockerhub [https://hub.docker.com/r/sameerfarooq/sparts-test/]
 
 ```
 docker pull sameerfarooq/sparts-test:v0.9.9
 ```
-
-
 
 Run the container with the following port configurations
 
@@ -48,6 +46,14 @@ Run this curl command or copy the URL into the browser (Replace 0.0.0.0 with the
 ```
 curl -i http://0.0.0.0:818/ledger/api/v1/ping
 ```
+
+and you should receive the following json formatted reply:
+
+```
+{"message": "OK", "result": "{}", "result_type": "EmptyRecord", "status": "success"}
+```
+
+
 
 ### Notes
 
