@@ -1590,13 +1590,13 @@ func supplierRequest() {
 			fmt.Printf("  error - expecting at least argument name=[supplier name] \n")
 		} else {
 			// send request to ledger to create new supplier
-			uuid := createSupplier(name, short_id, "", "abc123", url)
-			if uuid == "" {
-				fmt.Printf("  Not able to create new supplier: '%s'\n", name)
+			uuid, err := createSupplier(name, short_id, "", "abc123", url)
+			if err != nil {
+				displayErrorMsg(err.Error())
+				////fmt.Printf("  Not able to create new supplier: '%s'\n", name)
 			} else {
 				fmt.Printf("  new supplier '%s' has uuid = %s\n", name, uuid)
 			}
-			//fmt.Printf ("  do it name=%s, short_id=%s, url=%s\n", name, short_id, url)
 		}
 	default:
 		fmt.Printf("%s: not a valid argument for %s\n", os.Args[2], os.Args[1])

@@ -1,5 +1,5 @@
 # Ledger Node Installation Guide
-We provide a guidance on how to install a ledger node on different cloud platforms. The first platform we support is Amazon's Web Services (AWS). We are planning on supporting Microsoft's Azure and Google Cloud platforms in the near future. 
+We discuss how to install a ledger node on different cloud platforms. The first platform we support and discuss is Amazon's Web Services (AWS). We are planning on providing instructions for Microsoft's Azure and Google Cloud platforms in the near future. 
 
 
 
@@ -25,7 +25,7 @@ Login into the ssh into your AWS instance (default user name for  an Ubuntu Serv
 
 Follow this guide to install docker (follow Step 1): https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-16-04
 
-Once the Docker service is running pull the container from  dockerhub [https://hub.docker.com/r/sameerfarooq/sparts-test/]
+Once the Docker service is running pull the container from  docker hub  [https://hub.docker.com/r/sameerfarooq/sparts-test/] using the following command
 
 ```
 docker pull sameerfarooq/sparts-test:v0.9.9
@@ -41,7 +41,7 @@ docker run -dit --name=node0.9.9 -p 0.0.0.0:818:818 -p 0.0.0.0:4004:4004 -p 127.
 
 ### API test
 
-Run this curl command or copy the URL into the browser (Replace 0.0.0.0 with the Public IP of your instance)
+Run the following curl command or copy the URL into the browser (Replace 0.0.0.0 with the Public IP address of your instance)
 
 ```
 curl -i http://0.0.0.0:818/ledger/api/v1/ping

@@ -6,7 +6,7 @@ The API for the SParts ledger is presented here. The ledger API calls are define
 
 ## I) Ledger API Calls
 
-#### +Ping Request
+#### Ping Request
 
 ------
 
@@ -30,7 +30,7 @@ Since there is not data to return the record type **EmptyRecord** is specified i
 
 
 
-#### +Artifact Record
+#### Artifact Record
 
 ```
 GET /ledger/api/v1/artifacts/{uuid}
@@ -136,7 +136,7 @@ Note that the envelope record utilizes the artifact_list field where a single ar
 
 
 
-#### Artifact Add*
+#### Artifact Add
 
 ```
 POST /ledger/api/v1/artifacts
@@ -395,7 +395,7 @@ See section II for the json definition of **OrganizationRecord**. If there are n
 
 
 
-#### Supplier Add*
+#### Supplier Add
 
 ```
 POST /ledger/api/v1/suppliers
