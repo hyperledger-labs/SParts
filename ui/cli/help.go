@@ -190,6 +190,17 @@ const _INIT_HELP_CONTENT = `usage: sparts init
   Create an empty SParts repository or reinitialize an existing one
 `
 
+// network help
+const _NETWORK_HELP_CONTENT = `usage: sparts network [<options>]
+-h, --help : display help
+  -l, --list :list all parts in network - e.g., 
+      sparts part --list
+
+Examples:
+  sparts network --help
+  sparts network --list
+`
+
 // part --help
 const _PART_HELP_CONTENT = `usage: sparts part [<options>]
   -h, --help : display help

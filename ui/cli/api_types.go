@@ -93,6 +93,16 @@ type ArtifactAddRecord struct {
 	Artifact   ArtifactRecord `json:"artifact"`
 }
 
+type NetworkSpaceRecord struct {
+	Name        string `json:"name"`                  // Fullname
+	Password    string `json:"password"`              // system password
+	Description string `json:"description,omitempty"` // 2-3 sentence description
+	Status      string `json:"status,omitempty"`      // Network Status - e.g., Public/Active
+	Timestamp   string `json:"timestamp,omitempty"`
+	_PublicKey  string // Used internally to pass public key to the db
+	_PrivateKey string // Used internally to pass private key to the db
+}
+
 type PartAddRecord struct {
 	PublicKey  string     `json:"public_key"`
 	PrivateKey string     `json:"private_key"`
@@ -177,11 +187,11 @@ type URIAddRecord struct {
 }
 
 type SupplierRecord struct {
-	UUID  string `json:"uuid"`            // UUID provide w/previous registration
-	Name  string `json:"name"`            // Fullname
-	Alias string `json:"alias,omitempty"` // 1-15 alphanumeric characters
-	Url   string `json:"url,omitempty"`   // 2-3 sentence description
-	Parts []PartItemRecord
+	UUID  string           `json:"uuid"`            // UUID provide w/previous registration
+	Name  string           `json:"name"`            // Fullname
+	Alias string           `json:"alias,omitempty"` // 1-15 alphanumeric characters
+	Url   string           `json:"url,omitempty"`   // 2-3 sentence description
+	Parts []PartItemRecord `json:"parts,omitempty"`
 }
 
 type SupplierAddRecord struct {

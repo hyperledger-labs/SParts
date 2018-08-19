@@ -57,7 +57,7 @@ const (
 	_AUTO_SYNCH_KEY     = "auto_synch"
 	_ENVELOPE_KEY       = "envelope_uuid"
 	_FOCUS_KEY          = "focus"
-	_LEDGER_ADDRESS_KEY = "node.ledger_address"
+	_LEDGER_ADDRESS_KEY = "ledger_address"
 	_LEDGER_NETWORK_KEY = "ledger_network"
 	_SUPPLIER_KEY       = "supplier_uuid"
 	_PART_KEY           = "part_uuid"
