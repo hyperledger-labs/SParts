@@ -20,19 +20,16 @@ package main
  */
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	//"log"
 	//"path"
 	//"path/filepath"
-	"net/http"
+
 	"os"
 	//"os/user"
 	"sort"
-	"strings"
 	"text/tabwriter"
 )
 
@@ -182,22 +179,36 @@ func pushSupplierToLedger(supplier SupplierRecord) error {
 
 // createSupplier create a supplier and adds it to the ledger.
 // if 'uuid' == "" then it will automatically be generated.
-func createSupplier(name string, shortID string, uuid string, passwd string, url string) string {
-	var supplier SupplierRecord
+func createSupplier(name string, alias string, uuid string, passwd string, url string) (string, error) {
+	var supplierInfo SupplierRecord
 
-	if uuid != "" && isValidUUID(uuid) {
-		supplier.UUID = uuid
+	if uuid != "" && !isValidUUID(uuid) {
+		return uuid, fmt.Errorf("Supplier UUID is not in a valid format.")
+	} else if uuid == "" {
+		supplierInfo.UUID = getUUID()
 	} else {
-		supplier.UUID = getUUID()
+		supplierInfo.UUID = uuid
 	}
-	supplier.Name = name
-	supplier.Alias = shortID
-	supplier.Url = url
+
+	supplierInfo.Name = name
+	supplierInfo.Alias = alias
+	supplierInfo.Url = url
+	supplierInfo.Parts = []PartItemRecord{}
+
+	var replyRecord ReplyType
+	err := sendPostRequest(_SUPPLIER_API, supplierInfo, replyRecord)
+	if err != nil {
+		return uuid, err
+	} else {
+		return uuid, nil
+	}
+
+	/*********************
 
 	supplierAsBytes, err := json.Marshal(supplier)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
-		return ""
+		return "", ""
 	}
 
 	//fmt.Println (string(supplierAsBytes))
@@ -205,7 +216,7 @@ func createSupplier(name string, shortID string, uuid string, passwd string, url
 	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(supplierAsBytes))
 	if err != nil {
 		fmt.Println(err)
-		return ""
+		return "", ""
 	}
 	req.Header.Set("X-Custom-Header", "myvalue")
 	req.Header.Set("Content-Type", "application/json")
@@ -213,7 +224,7 @@ func createSupplier(name string, shortID string, uuid string, passwd string, url
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
-		return ""
+		return "", ""
 	}
 	defer resp.Body.Close()
 
@@ -223,10 +234,11 @@ func createSupplier(name string, shortID string, uuid string, passwd string, url
 	//  {"status":"success"}
 	if strings.Contains(string(body), "success") {
 		//fmt.Println("response Body:", string(body))
-		return supplier.UUID
+		return "", supplier.UUID
 	} else {
-		return ""
+		return "", ""
 	}
+	***************************/
 }
 
 //----------------------------------------

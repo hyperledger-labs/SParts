@@ -65,6 +65,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -167,8 +168,22 @@ func createWhiteSpace(size int) string {
 
 // Check that the syntax of a UUID is correct.
 func isValidUUID(uuid_str string) bool {
-	_, err := uuid.ParseHex(uuid_str)
-	return err == nil
+	// Check the length
+	if len(uuid_str) != 36 {
+		return false
+	}
+
+	// check that all characters are either a-f, 0-9 or -
+	// e.g, 57c39479-870f-432c-552c-c69e7df4325b  ->  57c39479  870f  432c  552c  c69e7df4325b
+	r, err := regexp.Compile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+	if !r.MatchString(uuid_str) || err != nil {
+		return false
+	}
+	return true
+
+	// The following two lines alone also works:
+	//_, err := uuid.ParseHex(uuid_str)
+	//return err == nil
 }
 
 // Get UUID - Unique Universal Identifier

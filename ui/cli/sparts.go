@@ -113,6 +113,8 @@ func main() {
 		helpRequest()
 	case "init":
 		initRequest()
+	case "network":
+		networkRequest()
 	case "part":
 		partRequest()
 	case "ping":
@@ -915,6 +917,25 @@ func initRequest() {
 	}
 }
 
+// handle: 'sparts network' command
+func networkRequest() {
+	if len(os.Args[1:]) == 1 {
+		// Display help
+		fmt.Println(_NETWORK_HELP_CONTENT)
+		return
+	}
+	switch os.Args[2] {
+	case "--list", "-l":
+		displayNetworkList()
+	case "--help", "-help", "help", "-h":
+		// Display help
+		fmt.Println(_NETWORK_HELP_CONTENT)
+	default:
+		fmt.Printf("%s: not a valid argument for %s\n", os.Args[2], os.Args[1])
+		fmt.Println(_NETWORK_HELP_CONTENT)
+	}
+}
+
 // handle: 'sparts part' command
 func partRequest() {
 	var part PartRecord
@@ -1564,7 +1585,7 @@ func supplierRequest() {
 		}
 	case "--create", "-c":
 		// for each additional arg
-		name, short_id, url := " ", " ", " "
+		name, alias, url := " ", " ", " "
 		for i := 1; i <= len(os.Args[3:]); i++ {
 			//fmt.Println(os.Args[2+i])
 			arg := strings.Split(os.Args[2+i], "=")
@@ -1576,8 +1597,8 @@ func supplierRequest() {
 			switch arg[0] {
 			case "name":
 				name = arg[1]
-			case "short_id":
-				short_id = arg[1]
+			case "alias":
+				alias = arg[1]
 			case "url":
 				url = arg[1]
 			default:
@@ -1590,10 +1611,19 @@ func supplierRequest() {
 			fmt.Printf("  error - expecting at least argument name=[supplier name] \n")
 		} else {
 			// send request to ledger to create new supplier
-			uuid, err := createSupplier(name, short_id, "", "abc123", url)
+			uuid, err := createSupplier(name, alias, "", "abc123", url)
 			if err != nil {
-				displayErrorMsg(err.Error())
+				if strings.Contains(strings.ToLower(err.Error()), strings.ToLower("A connection attempt failed")) {
+					// expecting something like error msg:
+					//   Post http://35.166.246.146:818/ledger/api/v1/suppliers: dial tcp 35.166.246.146:818:
+					//   connectex: A connection attempt failed because the connected party did not properly respond after
+					//   a period of time, or established connection failed because connected host has failed to respond.
+					//displayErrorMsg(err.Error())
+					displayErrorMsg(fmt.Sprintf("ledger node not responding. Might try '%s synch' to locate active ledger node.", filepath.Base(os.Args[0])))
+				}
+
 				////fmt.Printf("  Not able to create new supplier: '%s'\n", name)
+				return
 			} else {
 				fmt.Printf("  new supplier '%s' has uuid = %s\n", name, uuid)
 			}
