@@ -23,15 +23,15 @@ package main
 const (
 	_DEBUG_DISPLAY_ON  = false
 	_DEBUG_REST_API_ON = false
-	_SEED_FUNCTION_ON  = true
+	_SEED_FUNCTION_ON  = false
 )
 
 // This is the default settings fot the local configuration
 const _LOCAL_CONFIG_FILE_CONTENT = `auto_synch: false
-envelope_uuid: tbd
+envelope_uuid: <tbd>
 focus: BOTH
 ledger_address:
-part_uuid: tbd
+part_uuid: <tbd>
 private_key:
 public_key:
 ledger_network: sparts-test-network
@@ -90,7 +90,7 @@ const (
 	_NO_FOCUS       = "NONE"
 	_TRUE           = "true"
 	_FALSE          = "false"
-	_NULL_UUID      = "tbd"
+	_NULL_UUID      = "<tbd>"
 	_ROOT_ENV       = "root"
 	_ROOT_TOKEN     = "root:"
 )
@@ -105,6 +105,7 @@ const (
 	// Atlas (spartshub.org) directory look up
 	_ATLAS_PING_API              = "/atlas/api/v1/ping"
 	_ATLAS_LIST_LEDGER_NODES_API = "/atlas/api/v1/network_node_list/"
+	_NETWORK_LIST_API            = "/atlas/api/v1/network_space"
 
 	// Ledger
 	_ARTIFACTS_API         = "/ledger/api/v1/artifacts"

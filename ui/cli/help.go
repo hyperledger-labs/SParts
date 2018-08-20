@@ -187,7 +187,18 @@ and part. One can specific one, the other or both.
 
 // init --help
 const _INIT_HELP_CONTENT = `usage: sparts init
-  Create an empty SParts repository or reinitialize an existing one
+  Create an empty SParts repository or reinitialize an existing respository
+`
+
+// network help
+const _NETWORK_HELP_CONTENT = `usage: sparts network [<options>]
+-h, --help : display help
+  -l, --list :list all parts in network - e.g., 
+      sparts part --list
+
+Examples:
+  sparts network --help
+  sparts network --list
 `
 
 // part --help
