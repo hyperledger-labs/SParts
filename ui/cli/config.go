@@ -57,7 +57,7 @@ const (
 	_AUTO_SYNCH_KEY     = "auto_synch"
 	_ENVELOPE_KEY       = "envelope_uuid"
 	_FOCUS_KEY          = "focus"
-	_LEDGER_ADDRESS_KEY = "node.ledger_address"
+	_LEDGER_ADDRESS_KEY = "ledger_address"
 	_LEDGER_NETWORK_KEY = "ledger_network"
 	_SUPPLIER_KEY       = "supplier_uuid"
 	_PART_KEY           = "part_uuid"
@@ -144,7 +144,6 @@ func setLocalConfigValue(key string, newValue string) error {
 	// Read config file
 	spartsDir, err := getSpartsDirectory()
 	if err != nil {
-		//fmt.Println(err)
 		return err
 	}
 	configFile := spartsDir + "/" + _LOCAL_CONFIG_FILE
@@ -158,8 +157,6 @@ func setLocalConfigValue(key string, newValue string) error {
 	switch strings.ToLower(key) {
 	case _LEDGER_ADDRESS_KEY:
 		configData.LedgerAddress = newValue
-	//case "node.conductor_address":
-	//	configData.Node.ConductorAddress = newValue
 	case _LEDGER_NETWORK_KEY:
 		configData.LedgerNetwork = newValue
 	case _ENVELOPE_KEY:

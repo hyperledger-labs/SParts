@@ -18,7 +18,6 @@ package main
  * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
  * OR CONDITIONS OF ANY KIND, either express or implied.
  */
-
 import (
 	"bytes"
 	"encoding/json"
@@ -32,6 +31,82 @@ import (
 	"net/http"
 	//"os/user"
 )
+
+// sendGetRequest handles the sending of  all GET restful api calls
+// and assigns the reply contents to 'reply'
+func sendGetRequest3(serverAddress string, apiCall string, reply interface{}) error {
+
+	if _DEBUG_REST_API_ON {
+		fmt.Printf("Using http server api url: %s%s\n", serverAddress, apiCall)
+	}
+
+	// create reply record of the same type
+	replyRecord := reply
+
+	replyAsBytes, err := httpGetAPIRequest(serverAddress, apiCall)
+	if err != nil {
+		if _DEBUG_DISPLAY_ON {
+			displayErrorMsg(err.Error())
+		}
+		reply = nil
+		return fmt.Errorf("http server is not accessible")
+	}
+
+	var objmap map[string]*json.RawMessage
+	err = json.Unmarshal(replyAsBytes, &objmap)
+	if err != nil {
+		reply = nil
+		return fmt.Errorf("unable to unmarshal http server reponse")
+	}
+	// Make sure status field exists
+	if _, ok := objmap["status"]; !ok {
+		reply = nil
+		return fmt.Errorf("'status' field is missing from server's response")
+	}
+	var resultStatus string
+	err = json.Unmarshal(*objmap["status"], &resultStatus)
+	if err != nil {
+		reply = nil
+		return fmt.Errorf("problem accessing 'status' field from '%s' server's response")
+	}
+	if resultStatus != _SUCCESS {
+		var message string
+		err = json.Unmarshal(*objmap["message"], &message)
+		return fmt.Errorf("received failed response from http server: %s", message)
+	}
+
+	// Make sure 'result_type' field exists - to avoid panic
+	if _, ok := objmap["result_type"]; !ok {
+		reply = nil
+		return fmt.Errorf("'result_type' field is missing from service response")
+	}
+	var resultType string
+	err = json.Unmarshal(*objmap["result_type"], &resultType)
+	if err != nil {
+		reply = nil
+		return fmt.Errorf("Reply type is missing from service response")
+	}
+
+	// __resultType := "*" + resultType // need to add prefix '*' to type string
+	// Need to remove '*' from type - e.g., *ListOf:SupplierRecord -> ListOf:SupplierRecord
+	expectedType := strings.Replace(getType(replyRecord), "*", "", 1)
+	////&& strings.ToLower(resultType) != strings.ToLower("ArtifactRecord")
+	if strings.ToLower(resultType) != strings.ToLower(expectedType) {
+		reply = nil
+		return fmt.Errorf("%s's type response type '%s' is not valid. Expecting: '%s'", resultType, expectedType)
+	}
+
+	err = json.Unmarshal(*objmap["result"], &replyRecord)
+	if err != nil {
+		if _DEBUG_DISPLAY_ON {
+			displayErrorMsg(err.Error())
+		}
+		reply = nil
+		return fmt.Errorf("Service response may not be properly formatted. Expecting: '%s'", resultType)
+	}
+	reply = replyRecord
+	return nil
+}
 
 // sendGetRequest handles the sending of  all GET restful api calls
 // and assigns the reply contents to 'reply'
@@ -62,16 +137,6 @@ func sendGetRequest(apiCall string, reply interface{}) error {
 		reply = nil
 		return fmt.Errorf("unable to unmarshal ledger reponse")
 	}
-
-	// called in event of panic
-	/****
-		defer func() {
-			if err := recover(); err != nil {
-				reply = nil
-				err = errors.New(fmt.Sprintf("Unexpected ledger reponse input received."))
-			}
-		}()
-	****/
 
 	// Make sure status field exists
 	if _, ok := objmap["status"]; !ok {
@@ -118,6 +183,91 @@ func sendGetRequest(apiCall string, reply interface{}) error {
 		}
 		reply = nil
 		return fmt.Errorf("Ledger response may not be properly formatted. Expecting: '%s'", resultType)
+	}
+	reply = replyRecord
+	return nil
+}
+
+func sendGetRequest2(server string, apiCall string, reply interface{}) error {
+
+	var serverAddress string
+	switch server {
+	case _LEDGER:
+		serverAddress = getLocalConfigValue(_LEDGER_ADDRESS_KEY)
+	case _ATLAS:
+		serverAddress = getGlobalConfigValue(_ATLAS_ADDRESS_KEY)
+	default:
+		// server address not known
+		return fmt.Errorf("Address for server '%s' is not known", server)
+	}
+
+	if _DEBUG_REST_API_ON {
+		fmt.Printf("%s server api url: %s%s\n", serverAddress, apiCall)
+	}
+
+	// create reply record of the same type
+	replyRecord := reply
+
+	replyAsBytes, err := httpGetAPIRequest(serverAddress, apiCall)
+	if err != nil {
+		if _DEBUG_DISPLAY_ON {
+			displayErrorMsg(err.Error())
+		}
+		reply = nil
+		return fmt.Errorf("'%s' server is not accessible", server)
+	}
+
+	var objmap map[string]*json.RawMessage
+	err = json.Unmarshal(replyAsBytes, &objmap)
+	if err != nil {
+		reply = nil
+		return fmt.Errorf("unable to unmarshal server '%s' reponse", server)
+	}
+	// Make sure status field exists
+	if _, ok := objmap["status"]; !ok {
+		reply = nil
+		return fmt.Errorf("'status' field is missing from '%s' server's response", server)
+	}
+	var resultStatus string
+	err = json.Unmarshal(*objmap["status"], &resultStatus)
+	if err != nil {
+		reply = nil
+		return fmt.Errorf("problem accessing 'status' field from '%s' server's response", server)
+	}
+	if resultStatus != _SUCCESS {
+		var message string
+		err = json.Unmarshal(*objmap["message"], &message)
+		return fmt.Errorf("received failed response from server '%s': %s", server, message)
+	}
+
+	// Make sure 'result_type' field exists - to avoid panic
+	if _, ok := objmap["result_type"]; !ok {
+		reply = nil
+		return fmt.Errorf("'result_type' field is missing from '%s' server's response", server)
+	}
+	var resultType string
+	err = json.Unmarshal(*objmap["result_type"], &resultType)
+	if err != nil {
+		reply = nil
+		return fmt.Errorf("server '%s''s reply type is missing from response")
+	}
+
+	// __resultType := "*" + resultType // need to add prefix '*' to type string
+	// Need to remove '*' from type - e.g., *ListOf:SupplierRecord -> ListOf:SupplierRecord
+	expectedType := strings.Replace(getType(replyRecord), "*", "", 1)
+	////&& strings.ToLower(resultType) != strings.ToLower("ArtifactRecord")
+	if strings.ToLower(resultType) != strings.ToLower(expectedType) {
+		reply = nil
+		return fmt.Errorf("%s's type response type '%s' is not valid. Expecting: '%s'", server, resultType, expectedType)
+	}
+
+	err = json.Unmarshal(*objmap["result"], &replyRecord)
+	if err != nil {
+		if _DEBUG_DISPLAY_ON {
+			displayErrorMsg(err.Error())
+		}
+		reply = nil
+		return fmt.Errorf("%s's response may not be properly formatted. Expecting: '%s'", server, resultType)
 	}
 	reply = replyRecord
 	return nil
@@ -175,7 +325,7 @@ func sendPostRequest(apiCall string, requestRecord interface{}, replyRecord inte
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
+		//fmt.Printf("Error: %s\n", err)
 		replyRecord = nil
 		return err
 	}
