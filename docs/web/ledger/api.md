@@ -26,7 +26,7 @@ Example of a successful response:
 }
 ```
 
-Since there is not data to return the record type **EmptyRecord** is specified in the results field.  **EmptyRecord** is defined in part II. If the ledger is not available then no response will be received.
+Since there is no data to return the record type **EmptyRecord** is specified in the results field.  **EmptyRecord** is defined in part II of this document. If the ledger is not available then no response will be received.
 
 
 
@@ -188,7 +188,7 @@ curl -i -H "Content-Type: application/json" -X POST -d  '{"private_key": "5K92Si
 
 
 
-#### Artifact URI Add*
+#### Artifact URI Add
 
 ```
 POST /ledger/api/v1/artifacts/uri
@@ -233,7 +233,7 @@ curl -i -H "Content-Type: application/json" -X POST -d  '{"private_key": "5K92Si
 
 
 
-#### Artifact Of Envelope Relation*
+#### Artifact Of Envelope Relation
 
 ```
 POST /ledger/api/v1/envelope/artifact
@@ -267,7 +267,7 @@ POST /ledger/api/v1/relation/category_part
 
 
 
-#### Artifact of Part Relation*
+#### Artifact of Part Relation
 
 ```
 POST /ledger/api/v1/artifacts/part
@@ -505,7 +505,7 @@ Returns a list of **PartRecords**. Example response:
 
 
 
-#### Part Add*
+#### Part Add
 
 ```
 POST /ledger/api/v1/parts
@@ -538,7 +538,7 @@ curl -i -H "Content-Type: application/json" -X POST -d  '{"private_key": "5K9ft3
 
 
 
-#### Part Of Supplier Relation*
+#### Part Of Supplier Relation
 
 ```
 POST /ledger/api/v1/parts/supplier
@@ -767,10 +767,6 @@ Example Response:
 ```
 
 ```
-
-
-
-
 
 
 
