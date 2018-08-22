@@ -1,9 +1,9 @@
-# Ledger Node Installation Guide
+# Ledger Node Install & Launch Guide
 We discuss how to install a ledger node on different cloud platforms. The first platform we support and discuss is Amazon's Web Services (AWS). We are planning on providing instructions for Microsoft's Azure and Google Cloud platforms in the near future. 
 
 
 
-## Installation on AWS
+## I) Installation on AWS
 
 ### Configure the AWS instance
 
@@ -37,8 +37,6 @@ Run the container with the following port configurations
 docker run -dit --name=node0.9.9 -p 0.0.0.0:818:818 -p 0.0.0.0:4004:4004 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8800:8800 sameerfarooq/sparts-test:v0.9.9 /project/sparts_ledger.sh
 ```
 
-
-
 ### API test
 
 Run the following curl command or copy the URL into the browser (Replace 0.0.0.0 with the Public IP address of your instance)
@@ -53,10 +51,51 @@ and you should receive the following json formatted reply:
 {"message": "OK", "result": "{}", "result_type": "EmptyRecord", "status": "success"}
 ```
 
-
-
 ### Notes
 
 AMI templating
 
 Elastic IPs
+
+
+
+## II) Starting and Stopping Ledger
+
+#### Stopping
+
+```
+$ sudo docker stop /node0.9.9
+```
+
+#### Starting
+
+```
+$ sudo docker start /node0.9.9
+$ curl -i http://0.0.0.0:818/ledger/api/v1/ping
+$ ./start-ledger-node.sh
+$ curl -i http://0.0.0.0:818/ledger/api/v1/ping  ## test server is running
+
+## Should see
+{"message": "OK", "result": "{}", "result_type": "EmptyRecord", "status": "success"}
+```
+
+
+
+#### ./start-ledger-node.sh:
+
+```
+
+#!/bin/bash
+
+sudo docker stop node0.9.9
+sudo docker rm node0.9.9
+
+sudo docker run -dit --name=node0.9.9 -p 0.0.0.0:818:818 -p 0.0.0.0:4004:4004 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8800:8800 sameerfarooq/sparts-test:latest /project/sparts_ledger.sh
+
+sleep 30s
+curl -i http://0.0.0.0:818/ledger/api/v1/ping
+
+sudo docker exec -it node0.9.9  "user register_init 02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515 markgisi mark.gisi@windriver.com allow admin"
+
+```
+
