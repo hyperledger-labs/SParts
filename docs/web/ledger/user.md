@@ -55,11 +55,69 @@ and you should receive the following json formatted reply:
 
 AMI templating
 
-Elastic IPs
+Elastic IPsI) 
 
 
 
-## II) Starting and Stopping Ledger
+## II) Installation on Google Cloud
+
+Go to the Google Cloud dashboard and select any Linux based Amazon Machine Image. In this example we use Ubuntu Server 16.04. 
+
+We recommend these minimum specifications for [TBA].
+
+Create Firewall Rules
+
+https://cloud.google.com/vpc/docs/using-firewalls
+
+```
+Go to cloud.google.com
+
+Go to my Console
+
+Choose you Project.
+
+Choose Networking > VPC network
+
+Choose "Firewalls rules"
+
+Choose Create Firewall Rule
+
+To apply the rule only to select VM instances, select Targets "Specified target tags", and enter into "Target tags" the tag which determine to which instances the rule is applied. Then make sure the instances have the network tag applied. I have created a target tag "ledger"
+
+select ingress rule
+
+IP address ranges use: 0.0.0.0/0 
+
+To allow incoming TCP port 818, in "Protocols and Ports" enter tcp:818
+
+Click Create
+```
+
+Run the container with the following port configurations
+
+```
+docker run -dit --name=node0.9.9 -p 0.0.0.0:818:818 -p 0.0.0.0:4004:4004 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8800:8800 sameerfarooq/sparts-test:v0.9.9 /project/sparts_ledger.sh
+```
+
+### API test
+
+Run the following curl command or copy the URL into the browser (Replace 0.0.0.0 with the Public IP address of your instance)
+
+```
+curl -i http://0.0.0.0:818/ledger/api/v1/ping
+```
+
+and you should receive the following json formatted reply:
+
+```
+{"message": "OK", "result": "{}", "result_type": "EmptyRecord", "status": "success"}
+```
+
+### 
+
+
+
+## III) Starting and Stopping Ledger
 
 #### Stopping
 
