@@ -1,10 +1,14 @@
 # Ledger Node API
 
-## Overview
+
+
+## I) Overview
 
 The API for the SParts ledger is presented here. The ledger API calls are defined in part I of this document. The record types (objects) past between the ledger and client application are defined in part II of this document. Types include supplier, part, category as so forth. 
 
-## I) Ledger API Calls
+
+
+## II) Ledger API Calls
 
 #### Ping Request
 
@@ -429,6 +433,64 @@ curl -i -H "Content-Type: application/json" -X POST -d  '{"name": "Wind River", 
 
 
 
+#### Register User
+
+```
+POST /ledger/api/v1/registeruser
+```
+
+Use the **UserRegisterRecord**. The request must be performed by a user with Roles: admin or supplier.
+
+| Field       | Type       | Description           |
+| ----------- | ---------- | --------------------- |
+| private_key | string     | unique identifier     |
+| public_key  | string     | file or envelope name |
+| user        | UserRecord | alias for typing      |
+
+With **UserRecord**:
+
+| Field         | Type   | Description                       |
+| ------------- | ------ | --------------------------------- |
+| user_name     | string | user name                         |
+| email_address | string | user email                        |
+| role          | string | the role (e.g., "member")         |
+| authorized    | string | the authorization (e.g., "allow") |
+| public_key    | string | the user's pu                     |
+
+An example single artifact request:
+
+```
+{
+   private_key: "5K9ft3F4CDHMdGbeUZSyt77b1TJavfR7CAEgDZ7nXbdno1aynbt",
+   public_key: "034408551a7b24b917103ccfafb402195713cd2e5dcdc588e7dc537f07b195bcf9",
+   user: {	
+   			user_name: "7709ca8d-01f4-4de2-69ed-16b7ebae704a",
+    		email_address: "John.Doe@intel.com",
+			role: "member",
+			authorized: "allow",
+	   		public_key: 	
+	   			"03ef24753779355b4841dcef68a28044d1bc41b508b75bf8455b8518a5a61da50a"
+		}
+}
+```
+
+Example curl Request:
+
+```
+curl -i -H "Content-Type: application/json" -X POST -d  '{"private_key": "5K92SiHianMJRtqRiMaQ6xwzuYz7xaFRa2C8ruBQT6edSBg87Kq", "public_key" : "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515", "artifact": {"uuid": "7709ca8d-01f4-4de2-69ed-16b7ebae705c","name": "Zephypr 1.12 SPDX file", "checksum": "f855d41c49e80b9d6f2a13148e5eb838607e92f1", "alias": "zephypr_1.12", "label": "Zephypr 1.12 SPDX file", "openchain": "true", "content_type": "spdx"} }' http://147.11.176.111:818/ledger/api/v1/artifacts
+```
+
+
+
+**Potential Errors**:
+
+- The requesting user does not have the appropriate access credentials to perform the add.
+
+- One or more of the required fields UUID, checksum are missing.
+
+- The UUID is not in a valid format. 
+
+
 #### Part Get
 
 To obtain a part record use:
@@ -722,7 +784,7 @@ Example Response:
 
 
 
-## II) API Types
+## III) API Types
 
 #### ArtifactRecord
 
@@ -770,20 +832,6 @@ Example Response:
 
 
 
-#### SupplierRecord
-
-```
-{
-	UUID    string `json:"uuid"`               // UUID provide w/previous registration
-	Name    string `json:"name"`               // Fullname
-	Alias   string `json:"alias,omitempty"`    // 1-15 alphanumeric characters
-	Url     string `json:"url,omitempty"`      // 2-3 sentence description
-	Parts   ListOf.PartItemRecord
-}
-```
-
-
-
 #### PartItemRecord 
 
 ```
@@ -817,6 +865,46 @@ Example Response:
 {
 	PrivateKey string `json:"private_key"` // Private key
 	PublicKey  string `json:"public_key"`  // Pubkic key
+}
+```
+
+
+
+#### UserRecord
+
+```
+{
+	Name       string `json:"user_name"`
+	Email      string `json:"email_address"`
+	Role       string `json:"role"`
+	Authorized string `json:"authorized"`
+	PublicKey  string `json:"user_public_key"`
+}
+```
+
+
+
+#### UserRegisterRecord
+
+```
+{
+	User       UserRecord `json:"user"`
+	PrivateKey string     `json:"private_key"`
+	PublicKey  string     `json:"public_key"`
+}
+```
+
+
+
+#### SupplierRecord
+
+```
+{
+	UUID    string `json:"uuid"`               // universal unique identifier
+	Name    string `json:"name"`               // Fullname
+	Alias   string `json:"alias"`    // 1-15 alphanumeric characters
+	Url     string `json:"url"`      // 2-3 sentence description
+	Parts   ListOf:PartItemRecord
 }
 ```
 
