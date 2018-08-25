@@ -22,19 +22,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
-	//"fmt"
 	"io/ioutil"
+	"strings"
 	//"log"
-	//"path"
 	//"path/filepath"
 	"net/http"
-	//"os/user"
 )
 
 // sendGetRequest handles the sending of  all GET restful api calls
 // and assigns the reply contents to 'reply'
-func sendGetRequest3(serverAddress string, apiCall string, reply interface{}) error {
+func sendGetRequest(serverAddress string, apiCall string, reply interface{}) error {
 
 	if _DEBUG_REST_API_ON {
 		fmt.Printf("Using http server api url: %s%s\n", serverAddress, apiCall)
@@ -49,14 +46,14 @@ func sendGetRequest3(serverAddress string, apiCall string, reply interface{}) er
 			displayErrorMsg(err.Error())
 		}
 		reply = nil
-		return fmt.Errorf("http server is not accessible")
+		return fmt.Errorf("http server: '%s' is not accessible", serverAddress)
 	}
 
 	var objmap map[string]*json.RawMessage
 	err = json.Unmarshal(replyAsBytes, &objmap)
 	if err != nil {
 		reply = nil
-		return fmt.Errorf("unable to unmarshal http server reponse")
+		return fmt.Errorf("unable to parse http server reponse")
 	}
 	// Make sure status field exists
 	if _, ok := objmap["status"]; !ok {
@@ -67,12 +64,12 @@ func sendGetRequest3(serverAddress string, apiCall string, reply interface{}) er
 	err = json.Unmarshal(*objmap["status"], &resultStatus)
 	if err != nil {
 		reply = nil
-		return fmt.Errorf("problem accessing 'status' field from '%s' server's response")
+		return fmt.Errorf("problem accessing 'status' field from '%s' server's response", serverAddress)
 	}
 	if resultStatus != _SUCCESS {
 		var message string
 		err = json.Unmarshal(*objmap["message"], &message)
-		return fmt.Errorf("received failed response from http server: %s", message)
+		return fmt.Errorf("received failed response from http server: %s - %s", serverAddress, message)
 	}
 
 	// Make sure 'result_type' field exists - to avoid panic
@@ -108,6 +105,7 @@ func sendGetRequest3(serverAddress string, apiCall string, reply interface{}) er
 	return nil
 }
 
+/****************************************
 // sendGetRequest handles the sending of  all GET restful api calls
 // and assigns the reply contents to 'reply'
 func sendGetRequest(apiCall string, reply interface{}) error {
@@ -272,6 +270,7 @@ func sendGetRequest2(server string, apiCall string, reply interface{}) error {
 	reply = replyRecord
 	return nil
 }
+************************/
 
 func httpGetAPIRequest(net_address string, api_request string) ([]byte, error) {
 	////response, err := http.Get("http://" + net_address + api_request)
@@ -298,6 +297,8 @@ func httpGetAPIRequest(net_address string, api_request string) ([]byte, error) {
 }
 
 // sendPostRequest handles the marshalling up data for all the http POST restful api calls
+// It will check for success if replyReord is of type 'ReplyType' and return errpr == nil if
+// successful.
 func sendPostRequest(apiCall string, requestRecord interface{}, replyRecord interface{}) error {
 	// convert request data to bytes
 	recordAsBytes, err := json.Marshal(requestRecord)

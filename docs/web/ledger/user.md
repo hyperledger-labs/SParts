@@ -9,9 +9,9 @@ We discuss how to install a ledger node on different cloud platforms. The first 
 
 Go to the AWS EC2 dashboard and select any Linux based Amazon Machine Image. In this example we use Ubuntu Server 16.04. 
 
-We recommend these minimum specifications for [TBA].
+##### Configure Network Ports
 
-Add the following **Inbound** rules for the instance's security group.
+From the AWS console add the following **Inbound** rules for the instance's security group.
 
 ```
 Port: 818               Destination: 0.0.0.0/0          Description: API
@@ -21,41 +21,50 @@ Port: 22                Destination: 0.0.0.0/0          Description: SSH
 
 Login into the ssh into your AWS instance (default user name for  an Ubuntu Server is "ubuntu"). You can use ssh on linux and putty from windows. 
 
-### Install Docker and the Container
+##### Install Docker
 
-Follow this guide to install docker (follow Step 1): https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-16-04
+Follow this guide to install docker (see Step 1): https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-16-04
 
-Once the Docker service is running pull the container from  docker hub  [https://hub.docker.com/r/sameerfarooq/sparts-test/] using the following command
+##### Download and Run Initialize Script
 
-```
-docker pull sameerfarooq/sparts-test:v0.9.9
-```
-
-Run the container with the following port configurations
+With sudo privileges download and run the following scripts start-ledger:
 
 ```
-docker run -dit --name=node0.9.9 -p 0.0.0.0:818:818 -p 0.0.0.0:4004:4004 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8800:8800 sameerfarooq/sparts-test:v0.9.9 /project/sparts_ledger.sh
+git clone https://github.com/sparts-project/ledger-install-scripts.git
+sparts-project/init-ledger.sh latest
 ```
 
-### API test
+The ledger container name is 'latest'
 
-Run the following curl command or copy the URL into the browser (Replace 0.0.0.0 with the Public IP address of your instance)
+To test (ping) the ledger execute:
 
 ```
 curl -i http://0.0.0.0:818/ledger/api/v1/ping
 ```
 
-and you should receive the following json formatted reply:
+You can study the **init-ledger.sh** to understand the detailed steps of downloading and launching the ledger node container. You can use the **shutdown-ledger.sh** script to terminate container - warning: it will delete all the data and state information. 
+
+##### Initializing First User
+
+You will need to add the first user (bootstrap) account. This needs to be done only once. You will need to specific:
+
+- the public key, user account name (e.g., "johndoe")
+- email address (e.g., john.doe@windriver.com); 
+- specific the authorization (e.g., "allow"); and 
+- the role (e.g., "admin"). 
+- public key (e.g., "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515")
 
 ```
-{"message": "OK", "result": "{}", "result_type": "EmptyRecord", "status": "success"}
+
+sudo docker exec -ti latest sh -c "user register_init 02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515 johndoe john.doe@windriver.com allow admin"
 ```
 
-### Notes
 
-AMI templating
 
-Elastic IPsI) 
+##### Additional Considerations
+
+- Assigning an Elastic IP to instance
+- AMI templating
 
 
 
@@ -93,67 +102,46 @@ To allow incoming TCP port 818, in "Protocols and Ports" enter tcp:818
 Click Create
 ```
 
-Run the container with the following port configurations
+##### Install Docker
+
+Follow this guide to install docker (see Step 1): https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-16-04
+
+##### Download and Run Initialize Script
+
+With sudo privileges download and run the following scripts start-ledger:
 
 ```
-docker run -dit --name=node0.9.9 -p 0.0.0.0:818:818 -p 0.0.0.0:4004:4004 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8800:8800 sameerfarooq/sparts-test:v0.9.9 /project/sparts_ledger.sh
+git clone https://github.com/sparts-project/ledger-install-scripts.git
+sparts-project/init-ledger.sh latest
 ```
 
-### API test
+The ledger container name is 'latest'
 
-Run the following curl command or copy the URL into the browser (Replace 0.0.0.0 with the Public IP address of your instance)
+To test (ping) the ledger execute:
 
 ```
 curl -i http://0.0.0.0:818/ledger/api/v1/ping
 ```
 
-and you should receive the following json formatted reply:
+You can study the **init-ledger.sh** to understand the detailed steps of downloading and launching the ledger node container. You can use the **shutdown-ledger.sh** script to terminate container - warning: it will delete all the data and state information. 
+
+##### Initializing First User
+
+You will need to add the first user (bootstrap) account. This needs to be done only once. You will need to specific:
+
+- the public key, user account name (e.g., "johndoe")
+- email address (e.g., john.doe@windriver.com); 
+- specific the authorization (e.g., "allow"); and 
+- the role (e.g., "admin"). 
+- public key (e.g., "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515")
 
 ```
-{"message": "OK", "result": "{}", "result_type": "EmptyRecord", "status": "success"}
-```
-
-### 
-
-
-
-## III) Starting and Stopping Ledger
-
-#### Stopping
-
-```
-$ sudo docker stop /node0.9.9
-```
-
-#### Starting
-
-```
-$ sudo docker start /node0.9.9
-$ curl -i http://0.0.0.0:818/ledger/api/v1/ping
-$ ./start-ledger-node.sh
-$ curl -i http://0.0.0.0:818/ledger/api/v1/ping  ## test server is running
-
-## Should see
-{"message": "OK", "result": "{}", "result_type": "EmptyRecord", "status": "success"}
+sudo docker exec -ti latest sh -c "user register_init 02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515 johndoe john.doe@windriver.com allow admin"
 ```
 
 
 
-#### ./start-ledger-node.sh:
+##### Additional Considerations
 
-```
 
-#!/bin/bash
-
-sudo docker stop node0.9.9
-sudo docker rm node0.9.9
-
-sudo docker run -dit --name=node0.9.9 -p 0.0.0.0:818:818 -p 0.0.0.0:4004:4004 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8800:8800 sameerfarooq/sparts-test:latest /project/sparts_ledger.sh
-
-sleep 30s
-curl -i http://0.0.0.0:818/ledger/api/v1/ping
-
-sudo docker exec -it node0.9.9  "user register_init 02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515 markgisi mark.gisi@windriver.com allow admin"
-
-```
 

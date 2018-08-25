@@ -53,7 +53,6 @@ type localConfig struct {
 
 // local config file field names
 const (
-	//_CONDUCTOR_ADDRESS_KEY = "node.conductor_address"
 	_AUTO_SYNCH_KEY     = "auto_synch"
 	_ENVELOPE_KEY       = "envelope_uuid"
 	_FOCUS_KEY          = "focus"
@@ -77,9 +76,9 @@ type globalConfig struct {
 }
 ************/
 type globalConfig struct {
-	Atlas     string `json:"atlas_address"`
-	UserName  string `json:"user_name"`
-	UserEmail string `json:"user_email"`
+	AtlasAddress string `json:"atlas_address"`
+	UserName     string `json:"user_name"`
+	UserEmail    string `json:"user_email"`
 }
 
 // The default gola config file contents can be found in build_config.go
@@ -264,7 +263,7 @@ func getGlobalConfigValue(value string) string {
 	}
 	switch strings.ToLower(value) {
 	case _ATLAS_ADDRESS_KEY:
-		return configData.Atlas
+		return configData.AtlasAddress
 
 	case _USER_NAME_KEY:
 		return configData.UserName
@@ -319,10 +318,12 @@ func setGlobalConfigValue(field string, newValue string) {
 	}
 	switch strings.ToLower(field) {
 	case _ATLAS_ADDRESS_KEY:
-		configData.Atlas = newValue
-	case "user.name":
+		configData.AtlasAddress = newValue
+	//case "user.name":
+	case _USER_NAME_KEY:
 		configData.UserName = newValue
-	case "user.email":
+	//case "user.email":
+	case _USER_EMAIL_KEY:
 		configData.UserEmail = newValue
 	}
 	// Save updated config file

@@ -156,18 +156,24 @@ type ReplyType struct {
 	Result  interface{} `json:"result,omitempty"`
 }
 
+type SupplierRecord struct {
+	UUID  string           `json:"uuid"`            // UUID provide w/previous registration
+	Name  string           `json:"name"`            // Fullname
+	Alias string           `json:"alias,omitempty"` // 1-15 alphanumeric characters
+	Url   string           `json:"url,omitempty"`   // 2-3 sentence description
+	Parts []PartItemRecord `json:"parts,omitempty"`
+}
+
+type SupplierAddRecord struct {
+	PublicKey  string         `json:"public_key"`
+	PrivateKey string         `json:"private_key"`
+	Supplier   SupplierRecord `json:"supplier"`
+}
+
 type CategoryRecord struct {
 	UUID        string `json:"uuid"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"` // Part description (1-3 sentences)
-}
-
-type UserRecord struct {
-	Name       string `json:"name"`
-	Email      string `json:"email"`
-	Role       string `json:"role"`
-	Authorized string `json:"authorized"`
-	PublicKey  string `json:"public_key"`
 }
 
 type URIRecord struct {
@@ -186,18 +192,18 @@ type URIAddRecord struct {
 	URI        URIRecord `json:"uri"`
 }
 
-type SupplierRecord struct {
-	UUID  string           `json:"uuid"`            // UUID provide w/previous registration
-	Name  string           `json:"name"`            // Fullname
-	Alias string           `json:"alias,omitempty"` // 1-15 alphanumeric characters
-	Url   string           `json:"url,omitempty"`   // 2-3 sentence description
-	Parts []PartItemRecord `json:"parts,omitempty"`
+type UserRecord struct {
+	Name       string `json:"user_name"`
+	Email      string `json:"email_address"`
+	Role       string `json:"role"`
+	Authorized string `json:"authorized"`
+	PublicKey  string `json:"user_public_key"`
 }
 
-type SupplierAddRecord struct {
-	PublicKey  string         `json:"public_key"`
-	PrivateKey string         `json:"private_key"`
-	Supplier   SupplierRecord `json:"supplier"`
+type UserRegisterRecord struct {
+	User       UserRecord `json:"user"`
+	PrivateKey string     `json:"private_key"`
+	PublicKey  string     `json:"public_key"`
 }
 
 // ================================================
