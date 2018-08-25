@@ -20,25 +20,35 @@ package main
  */
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"text/tabwriter"
 )
+
+// getSupplierInfo retirieve a single supplier record from the
+// ledger. 'uuid' is the id of the supplier.
+// supplier.UUID == "" if an error occurs.
+func getSupplierInfo(uuid string) (SupplierRecord, error) {
+	var supplier SupplierRecord
+	if !isValidUUID(uuid) {
+		return supplier, fmt.Errorf("Supplier UUID is not in a valid format: %s", uuid)
+	}
+	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _SUPPLIER_API+"/"+uuid, &supplier)
+	return supplier, err
+}
 
 func getSupplierList() ([]SupplierRecord, error) {
 
 	var supplierList = []SupplierRecord{}
-	err := sendGetRequest(_SUPPLIER_API, &supplierList)
+	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _SUPPLIER_API, &supplierList)
 	return supplierList, err
 }
 
 // displaySupplierList retrieves the supplier list and
 // prints the  list to the terminal.
 func displaySupplierList() {
-
 	var supplierList []SupplierRecord
 	supplierList, err := getSupplierList()
 	if checkAndReportError(err) {
@@ -50,7 +60,6 @@ func displaySupplierList() {
 		fmt.Println("  No suppliers are registered with the ledger.")
 		return
 	}
-
 	//Sort the list
 	supplierList = sortSupplierList(supplierList)
 
@@ -82,27 +91,30 @@ func displaySupplierList() {
 	w.Flush()
 }
 
-// getSupplierInfo retirieve a single supplier record from the
+/*****************
+//  retirieve a single supplier record from the
 // ledger and prints it. 'uuid' is the id of the supplier.
 // supplier.UUID == "" if an error occurs.
-func getSupplierInfo(uuid string) (SupplierRecord, error) {
-
+func displaySupplierInfo(uuid string)  error {
 	var supplier SupplierRecord
-
-	supplier.UUID = "" // set in case there is an error later
+	////supplier.UUID = "" // set in case there is an error later
 	if !isValidUUID(uuid) {
-		return supplier, fmt.Errorf("Supplier UUID is not in a valid format: %s", uuid)
+		return fmt.Errorf("Supplier UUID is not in a valid format: %s", uuid)
 	}
 
-	// err := getReponse(_SUPPLIER_RECORD_API+uuid, &supplier)
-	// return supplier, err
-
-	replyAsBytes, err := httpGetAPIRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY),
-		_SUPPLIER_API+"/"+uuid)
+	supplier, err = getSupplierInfo(uuid)
 	if err != nil {
 		if _DEBUG_DISPLAY_ON {
 			displayErrorMsg(err.Error())
 		}
+		return err
+	}
+
+
+	replyAsBytes, err := httpGetAPIRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY),
+		_SUPPLIER_API+"/"+uuid)
+	if err != nil {
+
 		return supplier, errors.New(fmt.Sprintf("Ledger may not be accessible."))
 	}
 
@@ -121,11 +133,12 @@ func getSupplierInfo(uuid string) (SupplierRecord, error) {
 	}
 	return supplier, nil
 }
+***************************/
 
 // displaySupplier prints the supplier record.
 func displaySupplier(uuid string) {
 	supplier, err := getSupplierInfo(uuid)
-	if err != nil || supplier.UUID == "" {
+	if err != nil {
 		displayErrorMsg(err.Error())
 		return
 	}
@@ -168,6 +181,8 @@ func pushSupplierToLedger(supplier SupplierRecord) error {
 	if err != nil {
 		return err
 	}
+
+	// TODO: Check replyRecord = success
 
 	return nil
 }
@@ -234,6 +249,44 @@ func createSupplier(name string, alias string, uuid string, passwd string, url s
 		return "", ""
 	}
 	***************************/
+}
+
+func registerUser(name string, email string, role string, authorization string, publicKey string) error {
+	var user UserRecord
+	var request UserRegisterRecord
+	var reply ReplyType
+
+	if len(name) == 0 {
+		return fmt.Errorf("Name '%s' is not in a valid format", name)
+	}
+	if len(email) == 0 || !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+		return fmt.Errorf("Email '%s' is not in a valid format", email)
+	}
+	if len(role) == 0 {
+		return fmt.Errorf("Role '%s' is not in a valid format", role)
+	}
+	if len(authorization) == 0 {
+		return fmt.Errorf("Authorization '%s' is not in a valid format", authorization)
+	}
+	if !isPublicKeyValid(publicKey) {
+		return fmt.Errorf("User Public Key '%s' is not in a valid format", publicKey)
+	}
+	user.Name = name
+	user.Email = email
+	user.Role = role
+	user.Authorized = authorization
+	user.PublicKey = publicKey
+
+	request.User = user
+	request.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+	request.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+
+	err := sendPostRequest(_REGISTER_USER_API, request, reply)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 //----------------------------------------

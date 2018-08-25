@@ -273,7 +273,7 @@ func getPartInfo(uuid string) (PartRecord, error) {
 
 	/*******
 	// WORK AROUND - This is what it SHOULD BE
-	err := sendGetRequest(_PARTS_API+"/"+uuid, &part)
+	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _PARTS_API+"/"+uuid, &part)
 	if err != nil {
 		// error occurred - return err
 		return part, err
@@ -293,6 +293,6 @@ func getPartInfo(uuid string) (PartRecord, error) {
 // getPartList retrieves the list of all parts from the ledger.
 func getPartListFromLedger() ([]PartRecord, error) {
 	var partList = []PartRecord{}
-	err := sendGetRequest(_PARTS_API, &partList)
+	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _PARTS_API, &partList)
 	return partList, err
 }

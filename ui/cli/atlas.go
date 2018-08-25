@@ -28,7 +28,7 @@ import (
 func getNetworkList() ([]NetworkSpaceRecord, error) {
 
 	var networkList = []NetworkSpaceRecord{}
-	err := sendGetRequest2(_ATLAS, _NETWORK_LIST_API, &networkList)
+	err := sendGetRequest(getGlobalConfigValue(_ATLAS_ADDRESS_KEY), _NETWORK_LIST_API, &networkList)
 	return networkList, err
 }
 

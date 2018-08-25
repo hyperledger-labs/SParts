@@ -1782,9 +1782,12 @@ func seedRequest() {
 		fmt.Println("Seeding", err)
 	}
 	//if err = setLocalConfigValue(_PART_KEY, "fd6462e4-9560-4c7f-614c-a87f8ff792b8"); err != nil {
+
+	/*************
 	if err = setLocalConfigValue(_PART_KEY, "tbd"); err != nil {
 		fmt.Println("Seeding", err)
 	}
+	**************/
 	setAlias("wr", "3568f20a-8faa-430e-7c65-e9fce9aa155d")
 	//setAlias("p1", "fd6462e4-9560-4c7f-614c-a87f8ff792b8")
 
@@ -1812,14 +1815,22 @@ func seedRequest() {
 // Used for special testing
 func testRequest() {
 
-	artifact, err := getArtifactFromLedger("d2538468-9245-446c-4b6b-90068f2d8713")
-
+	err := registerUser("user1", "mark@windriver.com", "member", "allow", "02652cc94c4411b442caa95c641dabc55663b05eeb471b3945b497a0f4d45f2c5c")
 	if err != nil {
 		fmt.Println(err)
 		return
+	} else {
+		fmt.Println("success")
 	}
 
-	fmt.Println(len(artifact.ArtifactList))
+	/*********
+		artifact, err := getArtifactFromLedger("d2538468-9245-446c-4b6b-90068f2d8713")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println(len(artifact.ArtifactList))
+	***********/
 
 	/***********
 		envelopeUUID := os.Args[2]

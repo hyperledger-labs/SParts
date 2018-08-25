@@ -158,7 +158,7 @@ func getArtifactFromLedger(artifactUUID string) (ArtifactRecord, error) {
 		return artifact, fmt.Errorf("UUID '%s' is not in a valid format", artifactUUID)
 	}
 
-	err := sendGetRequest(_ARTIFACTS_API+"/"+artifactUUID, &artifact)
+	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _ARTIFACTS_API+"/"+artifactUUID, &artifact)
 
 	return artifact, err
 }
