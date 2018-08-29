@@ -1,0 +1,12 @@
+[Unit]
+Description=Sawtooth CATEGORY TP Python
+After=network.target
+
+[Service]
+User=sawtooth
+Group=sawtooth
+EnvironmentFile=-/etc/default/sawtooth-category-tp-python
+ExecStart=/usr/bin/category-tp-python $SAWTOOTH_CATEGORY_TP_PYTHON_ARGS
+
+[Install]
+WantedBy=multi-user.target
