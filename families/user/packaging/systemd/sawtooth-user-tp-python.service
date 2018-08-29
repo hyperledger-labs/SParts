@@ -1,0 +1,12 @@
+[Unit]
+Description=Sawtooth USER TP Python
+After=network.target
+
+[Service]
+User=sawtooth
+Group=sawtooth
+EnvironmentFile=-/etc/default/sawtooth-user-tp-python
+ExecStart=/usr/bin/user-tp-python $SAWTOOTH_USER_TP_PYTHON_ARGS
+
+[Install]
+WantedBy=multi-user.target
