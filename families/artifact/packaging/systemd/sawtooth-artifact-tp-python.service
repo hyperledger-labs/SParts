@@ -1,0 +1,12 @@
+[Unit]
+Description=Sawtooth ARTIFACT TP Python
+After=network.target
+
+[Service]
+User=sawtooth
+Group=sawtooth
+EnvironmentFile=-/etc/default/sawtooth-artifact-tp-python
+ExecStart=/usr/bin/artifact-tp-python $SAWTOOTH_ARTIFACT_TP_PYTHON_ARGS
+
+[Install]
+WantedBy=multi-user.target
