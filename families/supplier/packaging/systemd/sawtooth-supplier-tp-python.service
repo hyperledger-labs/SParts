@@ -1,0 +1,12 @@
+[Unit]
+Description=Sawtooth SUPPLIER TP Python
+After=network.target
+
+[Service]
+User=sawtooth
+Group=sawtooth
+EnvironmentFile=-/etc/default/sawtooth-supplier-tp-python
+ExecStart=/usr/bin/supplier-tp-python $SAWTOOTH_SUPPLIER_TP_PYTHON_ARGS
+
+[Install]
+WantedBy=multi-user.target
