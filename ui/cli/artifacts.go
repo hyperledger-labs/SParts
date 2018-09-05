@@ -477,7 +477,7 @@ func displayStagingTable() {
 	focus := getLocalConfigValue(_FOCUS_KEY)
 	switch focus {
 	case _PART_FOCUS:
-		fmt.Printf(" |     %s%s%s : %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
+		fmt.Printf(" |     %s%s%s : %s%s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
 		//// orphan only = !, set envelopeUUID to null
 		envelopeUUID = _NULL_UUID
 	case _ENVELOPE_FOCUS:
@@ -527,8 +527,8 @@ func displayStagingTable() {
 	}
 
 	const padding = 0
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
-		tabwriter.Debug)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
+	//w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
 	////fmt.Fprintf(w, " \t%s\t%s\t%s\t%s\t %s \n", " ----", " ----------", "------", "-----", "---------------------")
 	//fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path or URI")
 	fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path or URI")
@@ -591,9 +591,10 @@ func displayStagingTable() {
 	//fmt.Println("  <>File paths are relative to the sparts working directory.")
 	//fmt.Println()
 	// fmt.Println("    * New or updated and NOT assigned to a part or envelope")
-	fmt.Println("    >  New or updated artifact not yet pushed to ledger")
-	fmt.Println("    =  Artifact that has been pushed to the ledger")
+	fmt.Printf("   %s  New or updated artifact not yet pushed to ledger\n", _PRE_LEDGER_TOKEN)
+	fmt.Printf("   %s  Artifact that has been pushed to the ledger\n", _POST_LEDGER_TOKEN)
 	fmt.Printf("   tip: use '%s remove id1 id2 ...' to remove items from the staging area\n", filepath.Base(os.Args[0]))
+	fmt.Println()
 }
 
 func getEnvelopeArtifactList(envelopeUUID string, useUnassigned bool) ([]ArtifactRecord, error) {

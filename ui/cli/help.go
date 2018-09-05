@@ -31,6 +31,9 @@ e.g.,
 
 These are the <commands>:
 
+Also try:
+sparts tips - provides a listing of commonly used commands
+
 General
 -------
   about   - Provide an overview about this tool
@@ -96,20 +99,26 @@ be added.
 
 Examples:
    sparts add notices.pdf  licenses.spdx
-   sparts add link=https://github.com/zephyrproject/zephyr/tree/v1.11-branch
+   sparts add --dir USBDriver/
+   sparts add --url https://github.com/zephyrproject/zephyr/tree/v1.11-branch
    sparts add --openchain notices.pdf   // flag artifacts as being prepared 
                                         // under an OpenChain conforming program
    sparts add --openchain               // flag all artifacts in staging table as being  
                                         // prepared under an OpenChain conforming program
 `
 
-const _ALIAS_HELP_CONTENT = `usage: sparts alias <name> <value>
+const _ALIAS_HELP_CONTENT = `usage: sparts alias [options]
+
+Action
+  --list                  list all the alais definitions
+  --set                   set variable value: <name> <value>
+
 Examples:
-   sparts alias --set ibm 8879f843-bd68-4ebd-6cee-3e7fe91e3bcd /* company uuid */
+   sparts alias --set ibm 8879f843-bd68-4ebd-6cee-3e7fe91e3bcd /* supplier uuid */
 
    sparts alias --set debian-14.1.1 0f3d2681-1272-4aaa-7dea-658942dcecfe /* part uuid */
 
-   sparts alias --list  /* List all the alais definitions */
+   sparts alias --list
 `
 
 const _ARTIFACT_HELP_CONTENT = `usage: sparts artifact [--part <uuid>] <art1> <art2> ... <artN>
@@ -125,19 +134,20 @@ const _COMPARE_HELP_CONTENT = `usage: sparts compare  [options]
 Examples: 
     sparts compare --help
     sparts compare --dir artifacts1/ --dir artifacts2/ 
-    sparts compare --dir artifacts1/ --part <uuid>
-    sparts compare --part <uuid1> --part <uuid2>`
+    sparts compare --dir artifacts1/ --env <uuid>
+    sparts compare --env <uuid1> --env <uuid2>`
 
 // config --help
 const _CONFIG_HELP_CONTENT = `usage: sparts config [<options>]
 
 Config file location
-  --global		use global config file
-  --local		use working directory config file
+    --global              use global config file
+    --system              use system config file
+    --local               use working directory config file
 
 Action
-  --get			get value: name [value-regex]
-  -l, --list		list all
+  --get			              get value: name [value-regex]
+  -l, --list		          list all
 
 Set values:
   <name> value	e.g., config --global user.email bob237@gmail.com
@@ -191,13 +201,15 @@ const _INIT_HELP_CONTENT = `usage: sparts init
 `
 
 // network help
-const _NETWORK_HELP_CONTENT = `usage: sparts network [<options>]
--h, --help : display help
-  -l, --list :list all parts in network - e.g., 
+const _NETWORK_HELP_CONTENT = `usage: sparts network [options]
+  -h, --help : display help
+  --list, -l :list all parts in network - e.g., 
       sparts part --list
+  --get, -g display name of network currently assigned.  
 
 Examples:
   sparts network --help
+  sparts network --get
   sparts network --list
 `
 
@@ -278,3 +290,26 @@ const _VERSION_HELP_CONTENT = `usage: sparts version [--all]
     sparts version --all
     sparts version --help
  `
+
+// sparts tips
+const _TIPS_CONTENT = `usage: sparts tips
+Quick Reference to commonly used commands
+
+Config
+------
+sparts config --list
+sparts config --local --list
+sparts config --global --list
+sparts config --local <key> <value>
+
+Suppliers
+---------
+sparts supplier --list
+                --get
+
+Parts
+-----
+sparts part  --get <uuid>
+
+
+`

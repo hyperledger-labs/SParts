@@ -68,12 +68,12 @@ func displayNetworkList() {
 			name = networkList[k].Name[:25] + " ..."
 		}
 
-		// We can print up to 40 characters of the descripton.
+		// We can print up to 60 characters of the descripton.
 		// testting lenght: networkList[k].Description = "This is a long description to see how well 40 characters work	"
-		if len(networkList[k].Description) <= 40 {
+		if len(networkList[k].Description) <= 60 {
 			description = networkList[k].Description
 		} else {
-			description = networkList[k].Description[:40] + " ..."
+			description = networkList[k].Description[:60] + " ..."
 		}
 
 		fmt.Fprintf(w, "\t %s\t %s\t %s\n", name, networkList[k].Status, description)

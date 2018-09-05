@@ -34,11 +34,11 @@ type ArtifactRecord struct {
 	ArtifactList []ArtifactItem `json:"artifact_list,omitempty"`
 	URIList      []URIRecord    `json:"uri_list, omitempty"`
 	// Internal use only
-	_ID           int
-	_contentPath  string
-	_envelopePath string
-	_envelopeUUID string
-	_onLedger     string
+	_ID           int    `json:"-"`
+	_contentPath  string `json:"-"`
+	_envelopePath string `json:"-"`
+	_envelopeUUID string `json:"-"`
+	_onLedger     string `json:"-"`
 
 	// for comparison
 	_verified bool

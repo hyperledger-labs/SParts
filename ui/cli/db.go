@@ -212,7 +212,6 @@ func createDBTables() {
 // =========================================
 // ==    Artifacts Table Routines
 // =========================================
-// AAAA
 
 // Insert Aftifact record into the DB
 func addArtifactToDB(record ArtifactRecord) error {

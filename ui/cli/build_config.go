@@ -21,9 +21,9 @@ package main
 
 //Runtime debug flags
 const (
-	_DEBUG_DISPLAY_ON  = true
-	_DEBUG_REST_API_ON = true
-	_SEED_FUNCTION_ON  = true
+	_DEBUG_DISPLAY_ON  = false
+	_DEBUG_REST_API_ON = false
+	_SEED_FUNCTION_ON  = false
 )
 
 // This is the default settings fot the local configuration
@@ -78,21 +78,24 @@ const (
 
 // Misc  values
 const (
-	_ALIAS_LENGTH   = 15
-	_ALIAS_TOKEN    = "id="
-	_ENVELOPE_TYPE  = "envelope"
-	_LEDGER         = "ledger"
-	_ATLAS          = "atlas"
-	_NONE           = "NONE"
-	_ENVELOPE_FOCUS = "ENVELOPE"
-	_PART_FOCUS     = "PART"
-	_BOTH_FOCUS     = "BOTH"
-	_NO_FOCUS       = "NONE"
-	_TRUE           = "true"
-	_FALSE          = "false"
-	_NULL_UUID      = "<tbd>"
-	_ROOT_ENV       = "root"
-	_ROOT_TOKEN     = "root:"
+	_ALIAS_LENGTH      = 15
+	_ALIAS_TOKEN       = "id="
+	_INDENT_STR        = "   "
+	_ENVELOPE_TYPE     = "envelope"
+	_LEDGER            = "ledger"
+	_ATLAS             = "atlas"
+	_NONE              = "NONE"
+	_ENVELOPE_FOCUS    = "ENVELOPE"
+	_PART_FOCUS        = "PART"
+	_BOTH_FOCUS        = "BOTH"
+	_NO_FOCUS          = "NONE"
+	_TRUE              = "true"
+	_FALSE             = "false"
+	_PRE_LEDGER_TOKEN  = ">"
+	_POST_LEDGER_TOKEN = "="
+	_NULL_UUID         = "<tbd>"
+	_ROOT_ENV          = "root"
+	_ROOT_TOKEN        = "root:"
 )
 
 // Limits
