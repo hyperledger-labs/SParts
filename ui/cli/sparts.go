@@ -133,6 +133,8 @@ func main() {
 		synchRequest()
 	case "test":
 		testRequest()
+	case "tips":
+		tipsRequest()
 	case "version":
 		versionRequest()
 	default:
@@ -462,6 +464,11 @@ func compareRequest() {
 	var repoCount int
 	var err error
 
+	if len(os.Args[1:]) == 1 {
+		fmt.Println(_COMPARE_HELP_CONTENT)
+		return
+	}
+
 	// At least one additional argument.
 	//scanner := bufio.NewScanner(os.Stdin)
 	repoCount = 0
@@ -561,16 +568,24 @@ func compareRequest() {
 		fmt.Printf("No artifacts are contained within repo %s\n", artifactName2)
 		return
 	}
+	const equalStr = "="
+	const notEqualStr = "X"
+	const noMatchStr = "   -"
+
 	// Display comparison table
 	const padding = 0
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
-	const noMatchStr = "   -"
+	//w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
+	// writer := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+
 	fmt.Println()
-	fmt.Println(" 	Comparing ...")
-	fmt.Fprintf(w, " \t %s \t%s \t%s \t\n", "----------------------", " -----------", " -----------")
+	//fmt.Println(" 	Comparing ...")
+	fmt.Fprintf(w, " \t %s\t%s\t%s\t%s \t\n", "----------------------", " -----------", "  ", " -----------")
 	//fmt.Fprintf(w, " \t %s \t%s\t%s\t\n", "       Artifacts", " Directory*", "  Ledger*")
-	fmt.Fprintf(w, " \t %s\t%s \t%s\t\n", "       Artifacts", listTitle1, listTitle2)
-	fmt.Fprintf(w, " \t %s\t%s \t%s \t\n", "----------------------", " -----------", " -----------")
+	fmt.Fprintf(w, " \t %s\t%s\t%s\t%s\t\n", "       Artifacts", listTitle1, "  ", listTitle2)
+	//fmt.Fprintf(w, " \t %s\t%s %s %s \t\n", "       Artifacts", listTitle1, "  ", listTitle2)
+	fmt.Fprintf(w, " \t %s\t%s\t%s\t%s \t\n", "----------------------", " -----------", "  ", " -----------")
+	//fmt.Fprintf(w, " \t %s\t%s %s %s \t\n", "----------------------", " -----------", "  ", " -----------")
 	for i := 0; i < len(artifactList1); i++ {
 		for k := 0; k < len(artifactList2); k++ {
 			// check that it is not the envelope container
@@ -586,8 +601,10 @@ func compareRequest() {
 			// See if we have a match (that is not the main envelope)
 			if artifactList1[i].Checksum == artifactList2[k].Checksum {
 				// we have a match
-				fmt.Fprintf(w, " \t %s \t  %s \t  %s\t\n", artifactList1[i].Name2, trimUUID(artifactList1[i].Checksum, 5), trimUUID(artifactList2[k].Checksum, 5))
+
 				////fmt.Fprintf(w, "\t  %s\t %s\t %s\t %s\n", id, namea, artifacts[i].Type, path)
+				fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), equalStr, trimUUID(artifactList2[k].Checksum, 5))
+				////fmt.Fprintf(w, " \t %s \t  %s  %s  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), equalStr, trimUUID(artifactList2[k].Checksum, 5))
 				artifactList1[i]._verified = true
 				artifactList2[k]._verified = true
 			}
@@ -596,7 +613,8 @@ func compareRequest() {
 	// Now run through the first list to see if any unverified.
 	for i := 0; i < len(artifactList1); i++ {
 		if !artifactList1[i]._verified {
-			fmt.Fprintf(w, " \t %s \t  %s \t  %s\t\n", artifactList1[i].Name2, trimUUID(artifactList1[i].Checksum, 5), noMatchStr)
+			fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), notEqualStr, noMatchStr)
+			//fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), notEqualStr, noMatchStr)
 		}
 	}
 
@@ -605,11 +623,14 @@ func compareRequest() {
 		if !artifactList2[k]._verified {
 			////id_2 := part_list_2[k].Checksum
 			////id_2 = id_2[:5]
-			fmt.Fprintf(w, " \t %s \t  %s \t  %s\t\n", artifactList2[k].Name, noMatchStr, trimUUID(artifactList2[k].Checksum, 5))
+			fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList2[k].Name2, noMatchStr, notEqualStr, trimUUID(artifactList2[k].Checksum, 5))
+			//fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList2[k].Name2, noMatchStr, notEqualStr, trimUUID(artifactList2[k].Checksum, 5))
 		}
 	}
 	// Write out comparison table.
-	fmt.Fprintf(w, " \t %s \t%s\t%s\t\n", "----------------------", " -----------", " -----------")
+	//fmt.Fprintf(w, " \t %s \t%s\t%s\t\n", "----------------------", " -----------", " -----------")
+	//fmt.Fprintf(w, " \t %s\t%s\t%s\t%s \t\n", "----------------------", " -----------", "  ", " -----------")
+	fmt.Fprintf(w, " \t %s\t%s\t%s\t%s \t\n", "----------------------", " -----------", "  ", " -----------")
 	w.Flush()
 	fmt.Printf("   **%s%s%s List\n", _CYAN_FG, artifactName1, _COLOR_END)
 	fmt.Printf("   ++%s%s%s List\n", _CYAN_FG, artifactName2, _COLOR_END)
@@ -920,16 +941,27 @@ func initRequest() {
 // handle: 'sparts network' command
 func networkRequest() {
 	if len(os.Args[1:]) == 1 {
-		// Display help
-		fmt.Println(_NETWORK_HELP_CONTENT)
+		//// Display help
+		////fmt.Println(_NETWORK_HELP_CONTENT)
+		networkName := getLocalConfigValue(_LEDGER_NETWORK_KEY)
+		if len(networkName) == 0 {
+			fmt.Println("The network has not be assigned")
+		}
+		fmt.Println(networkName)
 		return
 	}
 	switch os.Args[2] {
-	case "--list", "-l":
-		displayNetworkList()
+	case "--get", "-g":
+		networkName := getLocalConfigValue(_LEDGER_NETWORK_KEY)
+		if len(networkName) == 0 {
+			fmt.Println(" The network has not be assigned")
+		}
+		fmt.Println(networkName)
 	case "--help", "-help", "help", "-h":
 		// Display help
 		fmt.Println(_NETWORK_HELP_CONTENT)
+	case "--list", "-l":
+		displayNetworkList()
 	default:
 		fmt.Printf("%s: not a valid argument for %s\n", os.Args[2], os.Args[1])
 		fmt.Println(_NETWORK_HELP_CONTENT)
@@ -974,6 +1006,9 @@ func partRequest() {
 		fmt.Print("  alias (nickname): ")
 		scanner.Scan()
 		part.Alias = scanner.Text()
+		if len(part.Alias) > 0 {
+
+		}
 
 		fmt.Print("  licensing: ")
 		scanner.Scan()
@@ -988,22 +1023,6 @@ func partRequest() {
 		bs := h.Sum(nil)
 		part.Checksum = fmt.Sprintf("%x", bs)
 
-		/***************
-		fmt.Print("  url: ")
-		scanner.Scan()
-		url = scanner.Text()
-		*******************/
-
-		/*************************************
-		fmt.Print("  UUID (auto generated if blank): ")
-		scanner.Scan()
-		uuid = scanner.Text()
-
-		if uuid == "" {
-			uuid = getUUID()
-			//uuid ="f1c2d3..."
-		}
-		**************************************/
 		// generate part uuid
 		part.UUID = getUUID()
 		// Get part root UUID and store in Label for now.
@@ -1031,7 +1050,8 @@ func partRequest() {
 			}
 			// Set default part in local config file
 			setLocalConfigValue(_PART_KEY, part.UUID)
-			fmt.Println("submitting part info to ledger ....")
+
+			fmt.Printf("%s%s%s%s\n", _INDENT_STR, _CYAN_FG, "submitting part to ledger ....", _COLOR_END)
 			err = pushPartToLedger(part)
 			if err != nil {
 				displayErrorMsg(err.Error())
@@ -1041,7 +1061,8 @@ func partRequest() {
 			// Now create th ledger relationship between part and supplier.
 			ok, err := createPartSupplierRelationship(part.UUID, supplierUUID)
 			if ok == true {
-				fmt.Println("Part creation on ledger was SUCCESSFUL.")
+				////fmt.Println("Part creation on ledger was SUCCESSFUL.")
+				fmt.Printf("	pushed part: %s%s%s\n", _GREEN_FG, part.Name, _COLOR_END)
 				if getkeyboardYesNoReponse("Would you like to create an alias for this part (y/n)?") {
 					alias := getkeyboardReponse("Enter the alias you would like to use?")
 					err := setAlias(alias, part.UUID)
@@ -1392,6 +1413,7 @@ func pushRequest() {
 			continue // it's the envelope. skip
 		}
 		if artifact._onLedger == _FALSE {
+			fmt.Printf("%s%s%s%s\n", _INDENT_STR, _CYAN_FG, "submitting artifact to ledger ....", _COLOR_END)
 			ok, err := pushArtifactToLedger(artifact)
 			if !ok || err != nil {
 				// Error occurred
@@ -1420,7 +1442,7 @@ func pushRequest() {
 					fmt.Printf("	error pushing:  %s%s%s\n", _RED_FG, artifact.Name, _COLOR_END)
 				} else {
 					// Report success.
-					fmt.Printf("	pushing artifact: %s%s%s\n", _GREEN_FG, artifact.Name, _COLOR_END)
+					fmt.Printf("	pushed artifact: %s%s%s\n", _GREEN_FG, artifact.Name, _COLOR_END)
 				}
 			}
 		}
@@ -1540,6 +1562,7 @@ func statusRequest() {
 			fmt.Printf("| %sArtifact%s: %s%s%s\n", _WHITE_FG, _COLOR_END, _CYAN_FG, artifact.Name, _COLOR_END)
 			const padding = 0
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, '.', tabwriter.Debug)
+			//w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, '.', 0)
 			fmt.Fprintf(w, "\t%s\t%s\n", " -----------", "-----------------------------------------")
 			//fmt.Fprintf(w, "\t %s\t %s\n", "Name", artifact.Name)
 			fmt.Fprintf(w, "\t %s\t %s\n", "UUID", artifact.UUID)
@@ -1772,10 +1795,12 @@ func seedRequest() {
 	//os.Args = append(os.Args, "test3") // 3
 	//os.Args = append(os.Args, "test4") // 4
 
-	setLocalConfigValue(_LEDGER_NETWORK_KEY, "sparts-test-network")
+	//setLocalConfigValue(_LEDGER_NETWORK_KEY, "sparts-test-network")
+	setLocalConfigValue(_LEDGER_NETWORK_KEY, "zephyr-parts-network")
+	setLocalConfigValue(_LEDGER_ADDRESS_KEY, "35.197.7.42:818")
+
 	setLocalConfigValue(_PRIVATE_KEY, "5K92SiHianMJRtqRiMaQ6xwzuYz7xaFRa2C8ruBQT6edSBg87Kq")
 	setLocalConfigValue(_PUBLIC_KEY, "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515")
-	////setLocalConfigValue(_LEDGER_NETWORK_KEY, "zephyr-parts-network")
 	synchRequest()
 	/////setLocalConfigValue(_PART_KEY, "zephyr-parts-network")
 	if err = setLocalConfigValue(_SUPPLIER_KEY, "3568f20a-8faa-430e-7c65-e9fce9aa155d"); err != nil {
@@ -1788,7 +1813,7 @@ func seedRequest() {
 		fmt.Println("Seeding", err)
 	}
 	**************/
-	setAlias("wr", "3568f20a-8faa-430e-7c65-e9fce9aa155d")
+
 	//setAlias("p1", "fd6462e4-9560-4c7f-614c-a87f8ff792b8")
 
 	ok, err := pingServer(_LEDGER)
@@ -1808,8 +1833,43 @@ func seedRequest() {
 		err = pushSupplierToLedger(supplier)
 		if err != nil {
 			displayErrorMsg("encountered problem adding Wind River supplier to ledger")
+		} else {
+			setAlias("wr", supplier.UUID)
 		}
+
+		supplier = SupplierRecord{}
+		supplier.Name = "Zephyr Project"
+		supplier.Alias = "Zephyr"
+		supplier.UUID = "7234f20a-85bc-121a-39ac-2c5ce9dc167a"
+		supplier.Url = "http://www.zephyrproject.org"
+		supplier.Parts = []PartItemRecord{}
+		err = pushSupplierToLedger(supplier)
+		if err != nil {
+			displayErrorMsg("encountered problem adding Zephyr Project supplier to ledger")
+		} else {
+			setAlias("zephyr", supplier.UUID)
+		}
+
+		supplier = SupplierRecord{}
+		supplier.Name = "Intel Corp"
+		supplier.Alias = "Intel"
+		supplier.UUID = "1f54f20a-85bc-9e1a-81d1-611ce9d2b122"
+		supplier.Url = "http://www.intel.com"
+		supplier.Parts = []PartItemRecord{}
+		err = pushSupplierToLedger(supplier)
+		if err != nil {
+			displayErrorMsg("encountered problem adding 'Intel' supplier to ledger")
+		} else {
+			setAlias("intel", supplier.UUID)
+		}
+
 	}
+
+}
+
+// handle: 'sparts tips' command
+func tipsRequest() {
+	fmt.Println(_TIPS_CONTENT)
 }
 
 // Used for special testing
