@@ -1,3 +1,5 @@
+
+
 # Ledger Node API
 
 
@@ -295,6 +297,131 @@ Example curl request:
 
 ```
 curl -i -H "Content-Type: application/json" -X POST -d  '{"private_key": "5K9ft3F4CDHMdGbeUZSyt77b1TJavfR7CAEgDZ7nXbdno1aynbt", "public_key" : "034408551a7b24b917103ccfafb402195713cd2e5dcdc588e7dc537f07b195bcf9", "relation": {"part_uuid": "f855d41c49e80b9d6f2a13148e5eb838607e92f1", "artifact_uuid": "dec6b86a-f794-43d6-64bc-ca4146548048"} }' http://localhost:3075/ledger/api/v1/artifacts/part
+```
+
+
+
+#### Customer Record
+
+A customer is a recipient of a collection of artifacts typically provide by a Supplier. 
+
+```
+GET /ledger/api/v1/customer/{uuid}
+```
+
+Response:
+
+```
+{	status: 	"success",
+	message: 	"OK",
+	result_type: "CustomerRecord",
+	result: 	{   name: "...",
+					uuid: "...",
+					alias: "...",
+					url: "...",
+				}
+}
+```
+
+Example Response:
+
+```
+{	status: 	"success",
+	message: 	"OK",
+	result_type: "CustomerRecord",
+	result: {	name: "Tesla, Inc.",
+			 	uuid: "31e3e600-cd79-4ee5-464e-e74e1ce763cc",
+				alias: "Tesla",
+				url: "http://www.tesla.com"
+			}
+}
+```
+
+See section II for the json definition of **CustomerRecord**. If a customer is not found the following error response will be received:
+
+```
+{	status: 	"failed",
+	message: 	"Customer record not found",
+	result_type: "EmptyRecord",
+	result: 	{}
+}
+```
+
+#### Customer List
+
+Obtain a list of organizations. 
+
+```
+GET /ledger/api/v1/customers
+```
+
+Example Response:
+
+```
+{	status: 	"success",
+	message: 	"OK",
+	result_type: "ListOf:CustomerRecord",
+	result: [ {	name: "Tesla, Inc.",
+			 	uuid: "31e3e600-cd79-4ee5-464e-e74e1ce763cc",
+				alias: "Tesla",
+				description: "Company specializing in electric vehicles and 
+							  lithium-ion battery energy storage."
+				url: "http://www.tesla.com"
+			},
+			{	name: "General Motors Corporation",
+			 	uuid: ""2584a6ce-16a7-44c0-7e53-21969d1e026b",
+				alias: "GM",
+				description: "an American automotive manufacturer"
+				url: "http://www.gm.com"
+			}
+	]
+}
+```
+
+See section II for the json definition of **CustomerRecord**. If there are not organizations registered then the empty list will be received: 
+
+```
+{	status: 	"success",
+	message: 	"OK",
+	result_type: "ListOf.CustomerRecord",
+	result: [ ]
+}
+```
+
+
+
+#### Customer Add
+
+```
+POST /ledger/api/v1/customers
+```
+
+The request must be performed by a user with Role:Admin access.
+
+| Name  | Type    | Description                                           |
+| ----- | ------- | ----------------------------------------------------- |
+| uuid  | string  | universal unique identifier                           |
+| name  | string  | name of organization                                  |
+| alias | strings | quick identifier 1-15 alphanumeric characters website |
+| url   | string  | website url                                           |
+
+Example Request:
+
+```
+{
+	uuid: "31e3e600-cd79-4ee5-464e-e74e1ce763cc",
+	name: "Tesla, Inc.",
+	alias: "Tesla",
+	description: "Company specializing in electric vehicles and 
+				  lithium-ion battery energy storage."
+	url: "http://www.windriver.com"
+}
+```
+
+Example curl command:
+
+```
+
 ```
 
 
