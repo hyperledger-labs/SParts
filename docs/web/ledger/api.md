@@ -301,7 +301,7 @@ curl -i -H "Content-Type: application/json" -X POST -d  '{"private_key": "5K9ft3
 
 
 
-### Organization 
+#### Organization 
 
 A organization can represent a company, foundation, project or individual. The record fields include:
 
