@@ -121,17 +121,17 @@ type PartSupplierPair struct {
 }
 
 type PartRecord struct {
-	UUID         string           `json:"uuid"`                  // Unique identifier
-	Name         string           `json:"name"`                  // Fullname
-	Version      string           `json:"version,omitempty"`     // Version if exists.
-	Label        string           `json:"label,omitempty"`       // Display name
-	Alias        string           `json:"alias,omitempty"`       // 1-15 alphanumeric characters (unique)
-	Licensing    string           `json:"licensing,omitempty"`   // License expression
-	Description  string           `json:"description,omitempty"` // Part description (1-3 sentences)
-	Checksum     string           `json:"checksum,omitempty"`    // License expression
-	ArtifactList []ArtifactItem   `json:"artifacts,omitempty"`
-	Suppliers    []SupplierRecord `json:"suppliers,omitempty"`
-	Categories   []CategoryRecord `json:"categories,omitempty"`
+	UUID         string               `json:"uuid"`                  // Unique identifier
+	Name         string               `json:"name"`                  // Fullname
+	Version      string               `json:"version,omitempty"`     // Version if exists.
+	Label        string               `json:"label,omitempty"`       // Display name
+	Alias        string               `json:"alias,omitempty"`       // 1-15 alphanumeric characters (unique)
+	Licensing    string               `json:"licensing,omitempty"`   // License expression
+	Description  string               `json:"description,omitempty"` // Part description (1-3 sentences)
+	Checksum     string               `json:"checksum,omitempty"`    // License expression
+	ArtifactList []ArtifactItem       `json:"artifacts,omitempty"`
+	Suppliers    []OrganizationRecord `json:"suppliers,omitempty"`
+	Categories   []CategoryRecord     `json:"categories,omitempty"`
 	// URIList      []URIRecord    `json:"uri_list,omitempty"`
 
 	_ID string
@@ -156,6 +156,17 @@ type ReplyType struct {
 	Result  interface{} `json:"result,omitempty"`
 }
 
+type OrganizationRecord struct {
+	UUID        string           `json:"uuid"`                  // UUID provide w/previous registration
+	Name        string           `json:"name"`                  // Fullname
+	Alias       string           `json:"alias,omitempty"`       // 1-15 alphanumeric characters
+	Type        string           `json:"type,omitempty"`        // Organization descriptions
+	Description string           `json:"description,omitempty"` // (1-3) word type descriptions
+	Url         string           `json:"url,omitempty"`         // 2-3 sentence description
+	Parts       []PartItemRecord `json:"parts,omitempty"`
+}
+
+/*************
 type SupplierRecord struct {
 	UUID  string           `json:"uuid"`            // UUID provide w/previous registration
 	Name  string           `json:"name"`            // Fullname
@@ -163,11 +174,20 @@ type SupplierRecord struct {
 	Url   string           `json:"url,omitempty"`   // 2-3 sentence description
 	Parts []PartItemRecord `json:"parts,omitempty"`
 }
+***************/
 
+/*********************
 type SupplierAddRecord struct {
-	PublicKey  string         `json:"public_key"`
-	PrivateKey string         `json:"private_key"`
-	Supplier   SupplierRecord `json:"supplier"`
+	PublicKey  string             `json:"public_key"`
+	PrivateKey string             `json:"private_key"`
+	Supplier   OrganizationRecord `json:"supplier"`
+}
+*************************/
+
+type OrganizationAddRecord struct {
+	PublicKey    string             `json:"public_key"`
+	PrivateKey   string             `json:"private_key"`
+	Organization OrganizationRecord `json:"organization"`
 }
 
 type CategoryRecord struct {

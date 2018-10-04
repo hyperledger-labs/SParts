@@ -90,7 +90,7 @@ func sendGetRequest(serverAddress string, apiCall string, reply interface{}) err
 	////&& strings.ToLower(resultType) != strings.ToLower("ArtifactRecord")
 	if strings.ToLower(resultType) != strings.ToLower(expectedType) {
 		reply = nil
-		return fmt.Errorf("%s's type response type '%s' is not valid. Expecting: '%s'", resultType, expectedType)
+		return fmt.Errorf("api call '%s' type response '%s' is not valid. Expecting: '%s'", apiCall, resultType, expectedType)
 	}
 
 	err = json.Unmarshal(*objmap["result"], &replyRecord)

@@ -30,26 +30,26 @@ import (
 // getSupplierInfo retirieve a single supplier record from the
 // ledger. 'uuid' is the id of the supplier.
 // supplier.UUID == "" if an error occurs.
-func getSupplierInfo(uuid string) (SupplierRecord, error) {
-	var supplier SupplierRecord
+func getSupplierInfo(uuid string) (OrganizationRecord, error) {
+	var supplier OrganizationRecord
 	if !isValidUUID(uuid) {
 		return supplier, fmt.Errorf("Supplier UUID is not in a valid format: %s", uuid)
 	}
-	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _SUPPLIER_API+"/"+uuid, &supplier)
+	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _ORGS_API+"/"+uuid, &supplier)
 	return supplier, err
 }
 
-func getSupplierList() ([]SupplierRecord, error) {
+func getSupplierList() ([]OrganizationRecord, error) {
 
-	var supplierList = []SupplierRecord{}
-	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _SUPPLIER_API, &supplierList)
+	var supplierList = []OrganizationRecord{}
+	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _ORGS_API, &supplierList)
 	return supplierList, err
 }
 
 // displaySupplierList retrieves the supplier list and
 // prints the  list to the terminal.
 func displaySupplierList() {
-	var supplierList []SupplierRecord
+	var supplierList []OrganizationRecord
 	supplierList, err := getSupplierList()
 	if checkAndReportError(err) {
 		return
@@ -89,6 +89,67 @@ func displaySupplierList() {
 	//fmt.Println()
 	fmt.Fprintf(w, "\n")
 	w.Flush()
+}
+
+////type Color string
+
+// displaySupplierList retrieves the supplier list and
+// prints the  list to the terminal.
+func displaySupplierList2() {
+	// Color is given its own type for safe function signatures
+
+	var supplierList []OrganizationRecord
+	supplierList, err := getSupplierList()
+	if checkAndReportError(err) {
+		return
+	}
+
+	// Let's check if the list of suppliers is empty
+	if len(supplierList) == 0 {
+		fmt.Println("  No suppliers are registered with the ledger.")
+		return
+	}
+	//Sort the list
+	supplierList = sortSupplierList(supplierList)
+
+	writer := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
+
+	// Header
+	fmt.Fprintf(writer, "\n")
+	fmt.Fprintf(writer, "  ---------------------------------------------------------------------\n")
+	header := []string{"Name", "Alias", "UUID"}
+	PrintRow(writer, PaintRowUniformly(CyanText, header))
+	PrintRow(writer, PaintRowUniformly(DefaultText, AnonymizeRow(header))) // header separator
+
+	for k := range supplierList {
+		url := supplierList[k].Url
+		if url == "" {
+			url = "      "
+		}
+		alias, _ := getAliasUsingValue(supplierList[k].UUID)
+		// format alias field for nil values for short length ones
+		if alias == "" {
+			alias = "   - "
+		} else if len(alias) < 4 {
+			//alias = "  " + alias
+		}
+		var colors []Color
+		// Row
+		colors = []Color{DefaultText, DefaultText, DefaultText}
+		/*****
+		if supplierList[k].Name == "Wind River" || supplierList[k].Name == "Intel Corp" {
+			colors = []Color{YellowText, DefaultText, DefaultText}
+		} else {
+			colors = []Color{RedText, DefaultText, DefaultText}
+		}
+		***********/
+
+		PrintRow(writer, PaintRow(colors, []string{supplierList[k].Name, alias, supplierList[k].UUID}))
+		//fmt.Fprintf(w, "\t %s\t %s\t %s\n", supplierList[k].Name, alias, supplierList[k].UUID)
+	}
+	//fmt.Println()
+	fmt.Fprintf(writer, "\n")
+	writer.Flush()
 }
 
 /*****************
@@ -166,18 +227,18 @@ func displaySupplier(uuid string) {
 	}
 }
 
-func pushSupplierToLedger(supplier SupplierRecord) error {
+func pushSupplierToLedger(supplier OrganizationRecord) error {
 
-	var requestRecord SupplierAddRecord
+	var requestRecord OrganizationAddRecord
 
 	requestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
 	requestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
 	if requestRecord.PrivateKey == "" || requestRecord.PublicKey == "" {
 		return fmt.Errorf("Private and/or Public key(s) are not set \n Use 'sparts config' to set keys")
 	}
-	requestRecord.Supplier = supplier
+	requestRecord.Organization = supplier
 	var replyRecord ReplyType
-	err := sendPostRequest(_SUPPLIER_API, requestRecord, replyRecord)
+	err := sendPostRequest(_ORGS_API, requestRecord, replyRecord)
 	if err != nil {
 		return err
 	}
@@ -190,7 +251,7 @@ func pushSupplierToLedger(supplier SupplierRecord) error {
 // createSupplier create a supplier and adds it to the ledger.
 // if 'uuid' == "" then it will automatically be generated.
 func createSupplier(name string, alias string, uuid string, passwd string, url string) (string, error) {
-	var supplierInfo SupplierRecord
+	var supplierInfo OrganizationRecord
 
 	if uuid != "" && !isValidUUID(uuid) {
 		return uuid, fmt.Errorf("Supplier UUID is not in a valid format.")
@@ -206,7 +267,7 @@ func createSupplier(name string, alias string, uuid string, passwd string, url s
 	supplierInfo.Parts = []PartItemRecord{}
 
 	var replyRecord ReplyType
-	err := sendPostRequest(_SUPPLIER_API, supplierInfo, replyRecord)
+	err := sendPostRequest(_ORGS_API, supplierInfo, replyRecord)
 	if err != nil {
 		return uuid, err
 	} else {
@@ -298,10 +359,10 @@ func registerUser(name string, email string, role string, authorization string, 
 // We use Go's sort slice functionn.
 // https://golang.org/pkg/sort/#Slice
 
-type By func(p1, p2 *SupplierRecord) bool
+type By func(p1, p2 *OrganizationRecord) bool
 
 // Sort is a method on the function type, By, that sorts the argument slice according to the function.
-func (by By) Sort(theList []SupplierRecord) {
+func (by By) Sort(theList []OrganizationRecord) {
 	ps := &listSorter{
 		theList: theList,
 		by:      by, // The Sort method's receiver is the function (closure) that defines the sort order.
@@ -309,10 +370,10 @@ func (by By) Sort(theList []SupplierRecord) {
 	sort.Sort(ps)
 }
 
-// listSorter joins a By function and a slice of SupplierRecord to be sorted.
+// listSorter joins a By function and a slice of OrganizationRecord to be sorted.
 type listSorter struct {
-	theList []SupplierRecord
-	by      func(p1, p2 *SupplierRecord) bool // Closure used in the Less method.
+	theList []OrganizationRecord
+	by      func(p1, p2 *OrganizationRecord) bool // Closure used in the Less method.
 }
 
 // Len is part of sort.Interface.
@@ -330,9 +391,9 @@ func (s *listSorter) Less(i, j int) bool {
 	return s.by(&s.theList[i], &s.theList[j])
 }
 
-func sortSupplierList(theList []SupplierRecord) []SupplierRecord {
+func sortSupplierList(theList []OrganizationRecord) []OrganizationRecord {
 
-	name := func(p1, p2 *SupplierRecord) bool {
+	name := func(p1, p2 *OrganizationRecord) bool {
 		return p1.Name < p2.Name
 	}
 	By(name).Sort(theList)
