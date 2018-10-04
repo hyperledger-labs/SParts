@@ -459,6 +459,122 @@ func configRequest() {
 // handle: 'sparts compare' command
 func compareRequest() {
 	var artifactList1, artifactList2 []ArtifactRecord
+	var artifactSetName1, artifactSetName2 string = "111", "222"
+	var listTitle1, listTitle2 string
+	var repoCount int
+	var err error
+
+	if len(os.Args[1:]) == 1 {
+		fmt.Println(_COMPARE_HELP_CONTENT)
+		return
+	}
+
+	// At least one additional argument.
+	//scanner := bufio.NewScanner(os.Stdin)
+	repoCount = 0
+	for i := 2; i < len(os.Args) && repoCount < 2; i++ {
+		// Check if "help" is the second argument.
+		artifact_arg := os.Args[i]
+		switch strings.ToLower(artifact_arg) {
+		case "--help", "-help", "-h":
+			fmt.Println(_COMPARE_HELP_CONTENT)
+			return
+		case "--dir":
+			////fmt.Println (len (os.Args[:i]))
+			if len(os.Args[i:]) == 1 {
+				displayErrorMsg(fmt.Sprintf("Missing next argument: a directory was expected for argument %d", i))
+				return // we are done. exit.
+			} else {
+				directory := os.Args[i+1]
+				i++
+				if !isDirectory(directory) {
+					displayErrorMsg(fmt.Sprintf("Argument %d: '%s' is not a directory", i, directory))
+					return // we are done. exit.
+				}
+				switch repoCount {
+				case 0:
+					artifactList1, _ = createEnvelopeFromDirectory(directory, false)
+					artifactSetName1 = directory
+					listTitle1 = "  Directory**  "
+					repoCount++ // we can accept up to two repositories (director and/or part)
+				case 1:
+					artifactList2, _ = createEnvelopeFromDirectory(directory, false)
+					artifactSetName2 = directory
+					listTitle2 = "  Directory++  "
+					repoCount++ // we can accept up to two repositories (director and/or part)
+				}
+				continue
+			}
+		case "--env":
+			if len(os.Args[i:]) == 1 {
+				displayErrorMsg(fmt.Sprintf("Missing next argument: a directory was expected for argument %d", i))
+				return // we are done. exit.
+			} else {
+				part_uuid := os.Args[i+1]
+				i++
+				if !isValidUUID(part_uuid) {
+					displayErrorMsg(fmt.Sprintf("'%s' is not valid uuid", part_uuid))
+					return // we are done. exit.
+				}
+				switch repoCount {
+				case 0:
+					//artifactList1, err = getPartArtifacts(part_uuid)
+					artifactList1, err = getEnvelopeArtifactsFromLedger(part_uuid)
+					if err != nil {
+						displayErrorMsg(err.Error())
+						return // we are done. exit.
+					}
+					artifactSetName1, _ = getAliasUsingValue(part_uuid)
+					if len(artifactSetName1) < 1 {
+						artifactSetName1 = trimUUID(part_uuid, 5)
+					}
+					listTitle1 = "  Ledger**  "
+					repoCount++ // we can accept up to two repositories (director and/or part)
+				case 1:
+					// artifactList2, err = getPartArtifacts(part_uuid)
+					artifactList2, err = getEnvelopeArtifactsFromLedger(part_uuid)
+					if err != nil {
+						displayErrorMsg(err.Error())
+						return // we are done. exit.
+					}
+					artifactSetName2, _ = getAliasUsingValue(part_uuid)
+					if len(artifactSetName2) < 1 {
+						artifactSetName2 = trimUUID(part_uuid, 5)
+					}
+					listTitle2 = "  Ledger++  "
+					repoCount++ // we can accept up to two repositories (director and/or part)
+				}
+				continue
+			}
+		default:
+			displayErrorMsg(fmt.Sprintf("'%s' is not a valid argument.\n", os.Args[i]))
+			return // we are done. exit.
+		} // switch strings.ToLower(artifact_arg)
+	} // for i :=
+
+	if repoCount < 2 { // make sure we have two repositories to compare.
+
+		displayErrorMsg(fmt.Sprintf("Missing two repositories to compare. Try: %s %s --help",
+			filepath.Base(os.Args[0]), os.Args[1]))
+		return
+	}
+	// check if any artifacts to display
+	if len(artifactList1) == 0 {
+		fmt.Printf("No artifacts are contained within repo %s\n", artifactSetName1)
+		return
+	}
+	// check if any artifacts to display.
+	if len(artifactList2) == 0 {
+		fmt.Printf("No artifacts are contained within repo %s\n", artifactSetName2)
+		return
+	}
+
+	err = displayListComparison(artifactList1, artifactList2, listTitle1, listTitle2, artifactSetName1, artifactSetName2)
+}
+
+// handle: 'sparts compare' command
+func compareRequest2() {
+	var artifactList1, artifactList2 []ArtifactRecord
 	var artifactName1, artifactName2 string = "111", "222"
 	var listTitle1, listTitle2 string
 	var repoCount int
@@ -495,12 +611,12 @@ func compareRequest() {
 				case 0:
 					artifactList1, _ = createEnvelopeFromDirectory(directory, false)
 					artifactName1 = directory
-					listTitle1 = " Directory**"
+					listTitle1 = "Directory**"
 					repoCount++ // we can accept up to two repositories (director and/or part)
 				case 1:
 					artifactList2, _ = createEnvelopeFromDirectory(directory, false)
 					artifactName2 = directory
-					listTitle2 = " Directory++"
+					listTitle2 = "Directory++"
 					repoCount++ // we can accept up to two repositories (director and/or part)
 				}
 				continue
@@ -528,7 +644,7 @@ func compareRequest() {
 					if len(artifactName1) < 1 {
 						artifactName1 = trimUUID(part_uuid, 5)
 					}
-					listTitle1 = "   Ledger**"
+					listTitle1 = "  Ledger**  "
 					repoCount++ // we can accept up to two repositories (director and/or part)
 				case 1:
 					// artifactList2, err = getPartArtifacts(part_uuid)
@@ -541,7 +657,7 @@ func compareRequest() {
 					if len(artifactName2) < 1 {
 						artifactName2 = trimUUID(part_uuid, 5)
 					}
-					listTitle2 = "   Ledger++"
+					listTitle2 = "  Ledger++  "
 					repoCount++ // we can accept up to two repositories (director and/or part)
 				}
 				continue
@@ -568,17 +684,19 @@ func compareRequest() {
 		fmt.Printf("No artifacts are contained within repo %s\n", artifactName2)
 		return
 	}
-	const equalStr = "="
-	const notEqualStr = "X"
-	const noMatchStr = "   -"
 
 	// Display comparison table
+	const equalStr = "="
+	const notEqualStr = "X"
+	const noMatchStr = "     -     "
+
+	/*******************************************
 	const padding = 0
 	//w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
 	// writer := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-
 	fmt.Println()
+
 	//fmt.Println(" 	Comparing ...")
 	fmt.Fprintf(w, " \t %s\t%s\t%s\t%s \t\n", "----------------------", " -----------", "  ", " -----------")
 	//fmt.Fprintf(w, " \t %s \t%s\t%s\t\n", "       Artifacts", " Directory*", "  Ledger*")
@@ -586,6 +704,19 @@ func compareRequest() {
 	//fmt.Fprintf(w, " \t %s\t%s %s %s \t\n", "       Artifacts", listTitle1, "  ", listTitle2)
 	fmt.Fprintf(w, " \t %s\t%s\t%s\t%s \t\n", "----------------------", " -----------", "  ", " -----------")
 	//fmt.Fprintf(w, " \t %s\t%s %s %s \t\n", "----------------------", " -----------", "  ", " -----------")
+	*********************************************/
+	fmt.Println()
+	const padding = 0
+	//w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
+
+	header := []string{"   Artifacts   ", listTitle1, "", listTitle2}
+	PrintRow(w, PaintRowUniformly(DefaultText, AnonymizeRow(header))) // header separator
+	PrintRow(w, PaintRowUniformly(CyanText, header))
+	PrintRow(w, PaintRowUniformly(DefaultText, AnonymizeRow(header))) // header separator
+
+	var colors []Color
+
 	for i := 0; i < len(artifactList1); i++ {
 		for k := 0; k < len(artifactList2); k++ {
 			// check that it is not the envelope container
@@ -601,9 +732,14 @@ func compareRequest() {
 			// See if we have a match (that is not the main envelope)
 			if artifactList1[i].Checksum == artifactList2[k].Checksum {
 				// we have a match
-
+				colors = []Color{DefaultText, DefaultText, GreenText, DefaultText}
 				////fmt.Fprintf(w, "\t  %s\t %s\t %s\t %s\n", id, namea, artifacts[i].Type, path)
-				fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), equalStr, trimUUID(artifactList2[k].Checksum, 5))
+				//fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), equalStr, trimUUID(artifactList2[k].Checksum, 5))
+				PrintRow(w, PaintRow(colors, []string{
+					artifactList1[i].Name,
+					"  " + trimUUID(artifactList1[i].Checksum, 5),
+					equalStr,
+					"  " + trimUUID(artifactList2[k].Checksum, 5)}))
 				////fmt.Fprintf(w, " \t %s \t  %s  %s  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), equalStr, trimUUID(artifactList2[k].Checksum, 5))
 				artifactList1[i]._verified = true
 				artifactList2[k]._verified = true
@@ -613,7 +749,12 @@ func compareRequest() {
 	// Now run through the first list to see if any unverified.
 	for i := 0; i < len(artifactList1); i++ {
 		if !artifactList1[i]._verified {
-			fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), notEqualStr, noMatchStr)
+			colors = []Color{DefaultText, DefaultText, RedText, RedText}
+			PrintRow(w, PaintRow(colors, []string{
+				artifactList1[i].Name,
+				"  " + trimUUID(artifactList1[i].Checksum, 5),
+				notEqualStr,
+				noMatchStr}))
 			//fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList1[i].Name, trimUUID(artifactList1[i].Checksum, 5), notEqualStr, noMatchStr)
 		}
 	}
@@ -623,17 +764,24 @@ func compareRequest() {
 		if !artifactList2[k]._verified {
 			////id_2 := part_list_2[k].Checksum
 			////id_2 = id_2[:5]
-			fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList2[k].Name2, noMatchStr, notEqualStr, trimUUID(artifactList2[k].Checksum, 5))
 			//fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList2[k].Name2, noMatchStr, notEqualStr, trimUUID(artifactList2[k].Checksum, 5))
+			//fmt.Fprintf(w, " \t %s \t  %s \t  %s \t  %s\t\n", artifactList2[k].Name2, noMatchStr, notEqualStr, trimUUID(artifactList2[k].Checksum, 5))
+			colors = []Color{DefaultText, RedText, RedText, DefaultText}
+			PrintRow(w, PaintRow(colors, []string{
+				artifactList2[k].Name2,
+				noMatchStr,
+				notEqualStr,
+				"  " + trimUUID(artifactList2[k].Checksum, 5)}))
 		}
 	}
 	// Write out comparison table.
 	//fmt.Fprintf(w, " \t %s \t%s\t%s\t\n", "----------------------", " -----------", " -----------")
 	//fmt.Fprintf(w, " \t %s\t%s\t%s\t%s \t\n", "----------------------", " -----------", "  ", " -----------")
-	fmt.Fprintf(w, " \t %s\t%s\t%s\t%s \t\n", "----------------------", " -----------", "  ", " -----------")
+	//fmt.Fprintf(w, " \t %s\t%s\t%s\t%s \t\n", "----------------------", " -----------", "  ", " -----------")
+	PrintRow(w, PaintRowUniformly(DefaultText, AnonymizeRow(header)))
 	w.Flush()
-	fmt.Printf("   **%s%s%s List\n", _CYAN_FG, artifactName1, _COLOR_END)
-	fmt.Printf("   ++%s%s%s List\n", _CYAN_FG, artifactName2, _COLOR_END)
+	fmt.Printf("  **%s%s%s List\n", _CYAN_FG, artifactName1, _COLOR_END)
+	fmt.Printf("  ++%s%s%s List\n", _CYAN_FG, artifactName2, _COLOR_END)
 	fmt.Println()
 }
 
@@ -1355,7 +1503,6 @@ func pushRequest() {
 
 	//fmt.Printf("Isss: '%s'  '%d'  '%s'\n", envelope.UUID, len(list), envelopeUUID)
 	//return
-	//ZZZZ
 	envelope._envelopePath = "/"
 
 	if envelope._onLedger == _FALSE {
@@ -1522,7 +1669,7 @@ func statusRequest() {
 		// ---------------------------
 		// Display Staging Area Table
 		//----------------------------
-		displayStagingTable()
+		displayStagingTable2()
 		return
 	}
 
@@ -1531,7 +1678,7 @@ func statusRequest() {
 	case "-h", "--help":
 		// Display help
 		fmt.Println(_STATUS_HELP_CONTENT)
-	case "--view":
+	case "-v", "--view":
 		numArguments := len(os.Args)
 		if numArguments == 3 {
 			displayErrorMsg("The '--view' option is expecting another argument. Try '--help' for more details")
@@ -1558,7 +1705,7 @@ func statusRequest() {
 			path = artifact._contentPath
 
 			fmt.Println()
-			fmt.Println("|------------------------------------------------------")
+			fmt.Println("|--------------------------------------------------------")
 			fmt.Printf("| %sArtifact%s: %s%s%s\n", _WHITE_FG, _COLOR_END, _CYAN_FG, artifact.Name, _COLOR_END)
 			const padding = 0
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, '.', tabwriter.Debug)
@@ -1571,11 +1718,17 @@ func statusRequest() {
 			fmt.Fprintf(w, "\t %s\t %s\n", "Type", artifact.ContentType)
 			fmt.Fprintf(w, "\t %s\t %s\n", "Checksum", artifact.Checksum)
 			fmt.Fprintf(w, "\t %s\t %s\n", "OpenChain", artifact.OpenChain)
-			////fmt.Fprintf(w, "\t %s\t %s\n", "URI", uri)
-			fmt.Fprintf(w, "\t %s\t %s\n", "Full Path", path)
-			fmt.Fprintf(w, "\n")
-			w.Flush()
+			fmt.Fprintf(w, "\t %s\t %s\n", "Content Path", path)
 
+			fmt.Fprintf(w, "\t %s\t %s\n", "On Ledger", artifact._onLedger)
+
+			if len(artifact._envelopePath) > 0 {
+				fmt.Fprintf(w, "\t %s\t %s\n", "Envelope Path", artifact._envelopePath)
+			}
+			//fmt.Fprintf(w, "\n")
+			w.Flush()
+			fmt.Println("|--------------------------------------------------------")
+			///////fmt.Println("is ...", artifact._onLedger)
 		}
 	default:
 		fmt.Printf("  error - '%s'is not a valid argument for %s\n", os.Args[2], filepath.Base(os.Args[0]))
@@ -1593,7 +1746,7 @@ func supplierRequest() {
 	//fmt.Println ("num", len(os.Args[1:]))
 	switch os.Args[2] {
 	case "--list", "-l":
-		displaySupplierList()
+		displaySupplierList2()
 	case "--help", "-help", "help", "-h":
 		// Display help
 		fmt.Println(_SUPPLIER_HELP_CONTENT)
@@ -1824,9 +1977,11 @@ func seedRequest() {
 
 	list, err := getSupplierList()
 	if err == nil && len(list) == 0 {
-		supplier := SupplierRecord{}
+		supplier := OrganizationRecord{}
 		supplier.Name = "Wind River"
 		supplier.Alias = "WR"
+		supplier.Type = "supplier"
+		supplier.Description = "Wind River, leading RTOS supplier"
 		supplier.UUID = "3568f20a-8faa-430e-7c65-e9fce9aa155d"
 		supplier.Url = "http://www.windriver.com"
 		supplier.Parts = []PartItemRecord{}
@@ -1837,9 +1992,11 @@ func seedRequest() {
 			setAlias("wr", supplier.UUID)
 		}
 
-		supplier = SupplierRecord{}
+		supplier = OrganizationRecord{}
 		supplier.Name = "Zephyr Project"
 		supplier.Alias = "Zephyr"
+		supplier.Type = "supplier"
+		supplier.Description = "Zephyr project part network"
 		supplier.UUID = "7234f20a-85bc-121a-39ac-2c5ce9dc167a"
 		supplier.Url = "http://www.zephyrproject.org"
 		supplier.Parts = []PartItemRecord{}
@@ -1850,9 +2007,11 @@ func seedRequest() {
 			setAlias("zephyr", supplier.UUID)
 		}
 
-		supplier = SupplierRecord{}
+		supplier = OrganizationRecord{}
 		supplier.Name = "Intel Corp"
 		supplier.Alias = "Intel"
+		supplier.Type = "supplier"
+		supplier.Description = "Intel, leading hardware supplier"
 		supplier.UUID = "1f54f20a-85bc-9e1a-81d1-611ce9d2b122"
 		supplier.Url = "http://www.intel.com"
 		supplier.Parts = []PartItemRecord{}

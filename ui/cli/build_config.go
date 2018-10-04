@@ -21,9 +21,9 @@ package main
 
 //Runtime debug flags
 const (
-	_DEBUG_DISPLAY_ON  = false
-	_DEBUG_REST_API_ON = false
-	_SEED_FUNCTION_ON  = false
+	_DEBUG_DISPLAY_ON  = true
+	_DEBUG_REST_API_ON = true
+	_SEED_FUNCTION_ON  = true
 )
 
 // This is the default settings fot the local configuration
@@ -111,13 +111,15 @@ const (
 	_NETWORK_LIST_API            = "/atlas/api/v1/network_space"
 
 	// Ledger
-	_ARTIFACTS_API         = "/ledger/api/v1/artifacts"
-	_ARTIFACTS_URI_API     = "/ledger/api/v1/artifacts/uri"
-	_ARTIFACT_OF_ENV_API   = "/ledger/api/v1/envelope/artifact"
-	_ARTIFACT_OF_PART_API  = "/ledger/api/v1/artifacts/part"
-	_PARTS_API             = "/ledger/api/v1/parts"
-	_LEDGER_PING_API       = "/ledger/api/v1/ping"
-	_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/supplier"
-	_SUPPLIER_API          = "/ledger/api/v1/suppliers"
-	_REGISTER_USER_API     = "/ledger/api/v1/registeruser"
+	_ARTIFACTS_API        = "/ledger/api/v1/artifacts"
+	_ARTIFACTS_URI_API    = "/ledger/api/v1/artifacts/uri"
+	_ARTIFACT_OF_ENV_API  = "/ledger/api/v1/envelope/artifact"
+	_ARTIFACT_OF_PART_API = "/ledger/api/v1/artifacts/part"
+	_PARTS_API            = "/ledger/api/v1/parts"
+	_LEDGER_PING_API      = "/ledger/api/v1/ping"
+	//_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/supplier"
+	_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/org"
+	// _SUPPLIER_API          = "/ledger/api/v1/suppliers"
+	_ORGS_API          = "/ledger/api/v1/orgs"
+	_REGISTER_USER_API = "/ledger/api/v1/registeruser"
 )
