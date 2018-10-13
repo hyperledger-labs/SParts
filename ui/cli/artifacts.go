@@ -116,8 +116,6 @@ func postEnvelopeToledger(artifacts []ArtifactRecord) bool {
 		return false
 	}
 
-	//fmt.Println (string(supplierAsBytes))
-	// request_url := "http://" + getLocalConfigValue(_LEDGER_ADDRESS_KEY) + "/api/sparts/ledger/envelopes"
 	request_url := generateURL(getLocalConfigValue(_LEDGER_ADDRESS_KEY), "/api/sparts/ledger/envelopes")
 	req, err := http.NewRequest("POST", request_url, bytes.NewBuffer(envelopeAsBytes))
 	if err != nil {
@@ -187,6 +185,13 @@ func getEnvelopeArtifactsFromLedger(envelopeUUID string) ([]ArtifactRecord, erro
 		if err != nil {
 			return list, err
 		}
+
+		// This is a temporary workaround until the ledger returns field: 'name' and not 'filename'
+		// .Name2 == filename
+		if len(artifactRecord.Name) == 0 {
+			artifactRecord.Name = artifactRecord.Name2
+		}
+
 		list = append(list, artifactRecord)
 	}
 
@@ -236,7 +241,7 @@ func createArtifactFromFile(file string) (ArtifactRecord, error) {
 	}
 	// Check if it is a directory. Expecting a file only.
 	if fileInfo.IsDir() {
-		return ArtifactRecord{}, fmt.Errorf("'%s' is a directory. Expecting file.", file)
+		return ArtifactRecord{}, fmt.Errorf("'%s' is a directory. Use --dir flag for directories", file)
 	}
 	// Extra check to make sure we have a file. IsRegular == true. May not be necessary
 	if !fileInfo.Mode().IsRegular() {
@@ -334,8 +339,6 @@ func createEnvelopeFromDirectory(directory string, openchainFlag bool) ([]Artifa
 			a._envelopePath = strings.Replace(a._envelopePath, `\`, `/`, -1)
 			// replace envelope name is '.' - e.g.,  env1/dir1/file1 -> ./dir1/file1
 			a._envelopePath = strings.Replace(a._envelopePath, envelopeName, ``, 1)
-			//a.path =   "envelope://" + a.Path
-			//a._contentPath, _ = filepath.Abs(path)
 			a._contentPath = path
 			a._contentPath = strings.Replace(a._contentPath, `\`, `/`, -1)
 			a.UUID = getUUID()
@@ -461,12 +464,9 @@ func displayStagingTable() {
 
 	if envelope_uuid == _NULL_UUID {
 		envelope_uuid = _RED_FG + envelope_uuid + _COLOR_END
-		/////envelopeUUID = _NULL_UUID
 	} else {
 		envelope_uuid = _GREEN_FG + envelope_uuid + _COLOR_END
 	}
-
-	////fmt.Println("Staged artifacts to be committed:")
 
 	fmt.Println(" |--------------------------- Staging --------------------------------")
 	// Decide 'focus' - i.e., whether to display 'part',envelope' or both
@@ -477,31 +477,19 @@ func displayStagingTable() {
 	focus := getLocalConfigValue(_FOCUS_KEY)
 	switch focus {
 	case _PART_FOCUS:
-		fmt.Printf(" |     %s%s%s : %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
-		//// orphan only = !, set envelopeUUID to null
+		fmt.Printf(" |     %s%s%s : %s%s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
 		envelopeUUID = _NULL_UUID
 	case _ENVELOPE_FOCUS:
 		fmt.Printf(" | %s%s%s : %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
-		//// orphan + envelope = ! + *  envelopeUUID has correct uuid already.
 	case _BOTH_FOCUS:
 		fmt.Printf(" |     %s%s%s : %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
 		fmt.Printf(" | %s%s%s : %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
-		//// orphan + envelope = ! + *  envelopeUUID has correct uuid already.
 	case _NO_FOCUS:
 		// orphan only = !, set envelopeUUID to null
 		envelopeUUID = _NULL_UUID
 	default:
 	}
 
-	/****
-	var displayArtifacts []ArtifactRecord
-	if focus == _PART_FOCUS || focus == _NO_FOCUS { //for part or none
-		displayArtifacts, err = getEnvelopeArtifactList(_NULL_UUID, true)
-	} else { // for envelope or both
-		displayArtifacts, err = getEnvelopeArtifactList(envelopeUUID, true)
-		////fmt.Printf("And Name is: '%s', and path is: %s\n", displayArtifacts[1].Name, displayArtifacts[1]._envelopePath)
-	}
-	*****/
 	displayArtifacts, err := getEnvelopeArtifactList(envelopeUUID, true)
 	if err != nil {
 		displayErrorMsg(err.Error())
@@ -512,8 +500,6 @@ func displayStagingTable() {
 
 	if len(displayArtifacts) == 0 {
 		// nothing waiting to post
-		///fmt.Printf("nothing to commit (use '%s add' to stage artifacts for posting to ledger)\n", filepath.Base(os.Args[0]))
-		/////w.Flush()
 		fmt.Println(" |")
 		if envelopeUUID == _NULL_UUID {
 			fmt.Println(" | [No atifacts have been placed into the staging area for above PART]")
@@ -527,10 +513,7 @@ func displayStagingTable() {
 	}
 
 	const padding = 0
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ',
-		tabwriter.Debug)
-	////fmt.Fprintf(w, " \t%s\t%s\t%s\t%s\t %s \n", " ----", " ----------", "------", "-----", "---------------------")
-	//fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path or URI")
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
 	fmt.Fprintf(w, " \t%s \t%s \t%s\t%s\t %s\n", "  Id", "  Name  ", " Type", "OpCh", " File Path or URI")
 	fmt.Fprintf(w, " \t%s\t%s \t%s\t%s\t %s\n", " ----", " ----------", "------", "-----", "---------------------")
 
@@ -588,12 +571,155 @@ func displayStagingTable() {
 	w.Flush()
 	//fmt.Println("  -----")
 	fmt.Println(" |--------------------------------------------------------------------")
+	fmt.Printf("   %s  New or updated artifact not yet pushed to ledger\n", _PRE_LEDGER_TOKEN)
+	fmt.Printf("   %s  Artifact that has been pushed to the ledger\n", _POST_LEDGER_TOKEN)
+	fmt.Printf("   tip: use '%s remove id1 id2 ...' to remove items from the staging area\n", filepath.Base(os.Args[0]))
+	fmt.Println()
+}
+
+// displayStagingTable prints the staging table to the terminal.
+func displayStagingTable2() {
+
+	fmt.Println()
+	ledgerNetwork := getLocalConfigValue(_LEDGER_NETWORK_KEY)
+	var color string
+	if ledgerNetwork == "" || ledgerNetwork == "tbd" {
+		color = _RED_FG
+		ledgerNetwork = "tdb"
+	} else {
+		color = _CYAN_FG
+	}
+
+	fmt.Printf("|--------------------------- %sStaging%s --------------------------------\n", _CYAN_FG, _COLOR_END)
+	fmt.Printf("|  %snetwork%s: %s\n", color, _COLOR_END, ledgerNetwork)
+
+	// See if alias is available for part
+	part_uuid := getLocalConfigValue(_PART_KEY)
+	partAlias, err := getAliasUsingValue(part_uuid)
+	if partAlias != "" && err == nil {
+		part_uuid = partAlias
+	}
+	if part_uuid == _NULL_UUID {
+		part_uuid = _RED_FG + part_uuid + _COLOR_END
+	} else {
+		part_uuid = _GREEN_FG + part_uuid + _COLOR_END
+	}
+
+	// See if alias is available for envelope
+	envelope_uuid := getLocalConfigValue(_ENVELOPE_KEY)
+	envelopeUUID := envelope_uuid // We will need the unmodified uuid later in func.
+	envelopeAlias, err := getAliasUsingValue(envelope_uuid)
+	if envelopeAlias != "" && err == nil {
+		envelope_uuid = envelopeAlias
+	}
+
+	if envelope_uuid == _NULL_UUID {
+		envelope_uuid = _RED_FG + envelope_uuid + _COLOR_END
+	} else {
+		envelope_uuid = _GREEN_FG + envelope_uuid + _COLOR_END
+	}
+
+	// Decide 'focus' - i.e., whether to display 'part',envelope' or both
+	//artifacts are grouped into three catagories:
+	// focus parts only = orphan
+	focus := getLocalConfigValue(_FOCUS_KEY)
+	switch focus {
+	case _PART_FOCUS:
+		fmt.Printf("|     %s%s%s : %s%s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
+		//// orphan only = !, set envelopeUUID to null
+		envelopeUUID = _NULL_UUID
+	case _ENVELOPE_FOCUS:
+		fmt.Printf("| %s%s%s: %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
+		//// orphan + envelope = ! + *  envelopeUUID has correct uuid already.
+	case _BOTH_FOCUS:
+		fmt.Printf("|     %s%s%s: %s\n", _CYAN_FG, "part", _COLOR_END, part_uuid)
+		fmt.Printf("| %s%s%s: %s\n", _CYAN_FG, "envelope", _COLOR_END, envelope_uuid)
+		//// orphan + envelope = ! + *  envelopeUUID has correct uuid already.
+	case _NO_FOCUS:
+		// orphan only = !, set envelopeUUID to null
+		envelopeUUID = _NULL_UUID
+	default:
+	}
+
+	displayArtifacts, err := getEnvelopeArtifactList(envelopeUUID, true)
+	if err != nil {
+		displayErrorMsg(err.Error())
+		return
+	}
+
+	fmt.Println("|--------------------------------------------------------------------")
+
+	if len(displayArtifacts) == 0 {
+		// nothing waiting to post
+		fmt.Println(" |")
+		if envelopeUUID == _NULL_UUID {
+			fmt.Println(" | [No atifacts have been placed into the staging area for above PART]")
+		} else {
+			fmt.Println(" | [No atifacts have been placed into the staging area for the above Envelope]")
+		}
+		fmt.Println()
+		fmt.Printf(" Use '%s add' to stage artifacts prior to posting to ledger\n", filepath.Base(os.Args[0]))
+		fmt.Println()
+		return // we're done
+	}
+
+	const padding = 0
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
+
+	header := []string{"Id", "  Name  ", " Type ", "OpeCh", "File Path or URI"}
+	PrintRow(w, PaintRowUniformly(CyanText, header))
+	PrintRow(w, PaintRowUniformly(DefaultText, AnonymizeRow(header))) // header separator
+
+	var openChain string
+	var id, name, envelopePath string
+	for i := range displayArtifacts {
+		if displayArtifacts[i].ContentType == _ENVELOPE_TYPE {
+			continue // skip envelopes
+		}
+		id = strconv.Itoa(displayArtifacts[i]._ID)
+		name = displayArtifacts[i].Name
+		if len(name) > 40 {
+			name = name[0:39]
+		}
+		if isPathURL(displayArtifacts[i]._contentPath) {
+			// path is a url link
+			envelopePath = displayArtifacts[i]._contentPath
+		} else {
+			// It is a file, convert path relative to the .sparts working directory.
+			//path = getAbridgedFilePath(displayArtifacts[i]._contentPath)
+			envelopePath = displayArtifacts[i]._envelopePath
+		}
+		if displayArtifacts[i].OpenChain == _TRUE {
+			openChain = " Y"
+		} else {
+			openChain = " -"
+		}
+		var colors []Color
+		//colors = []Color{DefaultText, DefaultText, DefaultText, DefaultText, DefaultText}
+		//fmt.Fprintf(w, "\t %s\t %s \t%s\t %s\t %s\n", id, name, displayArtifacts[i].ContentType, openChain, path)
+		switch displayArtifacts[i]._onLedger {
+		case "false":
+			colors = []Color{DefaultText, YellowText, DefaultText, DefaultText, DefaultText}
+		case "true":
+			colors = []Color{DefaultText, GreenText, DefaultText, DefaultText, DefaultText}
+		default:
+			colors = []Color{DefaultText, DefaultText, DefaultText, DefaultText, DefaultText}
+		}
+		PrintRow(w, PaintRow(colors, []string{id, name, displayArtifacts[i].ContentType, openChain, envelopePath}))
+	}
+
+	//fmt.Fprintf(w, "\n")
+
+	w.Flush()
+	//fmt.Println("  -----")
+	fmt.Println("|--------------------------------------------------------------------")
 	//fmt.Println("  <>File paths are relative to the sparts working directory.")
 	//fmt.Println()
 	// fmt.Println("    * New or updated and NOT assigned to a part or envelope")
-	fmt.Println("    >  New or updated artifact not yet pushed to ledger")
-	fmt.Println("    =  Artifact that has been pushed to the ledger")
+	fmt.Printf("   %s<name>%s - new or updated artifact NOT yet pushed to ledger\n", YellowText, Reset)
+	fmt.Printf("   %s<name>%s - artifact that has been pushed to the ledger\n", GreenText, Reset)
 	fmt.Printf("   tip: use '%s remove id1 id2 ...' to remove items from the staging area\n", filepath.Base(os.Args[0]))
+	fmt.Println()
 }
 
 func getEnvelopeArtifactList(envelopeUUID string, useUnassigned bool) ([]ArtifactRecord, error) {
@@ -696,4 +822,137 @@ func createArtifactOfPartRelation(artifactUUID string, partUUID string) error {
 	}
 
 	return nil
+}
+
+func displayListComparison(artifactList1 []ArtifactRecord, artifactList2 []ArtifactRecord,
+	listTitle1 string, listTitle2 string,
+	artifactSetName1 string, artifactSetName2 string) error {
+
+	var colors []Color
+	type comparisonRecord struct {
+		Artifact       ArtifactRecord
+		ChecksumsMatch bool
+		Name1          string
+		Name2          string
+		NamesMatch     bool
+	}
+
+	comparisonList := []comparisonRecord{}
+	var record comparisonRecord
+
+	const equalStr = " = "
+	const notEqualStr = " X "
+	const noMatchStr = "---------"
+
+	for i := 0; i < len(artifactList1); i++ {
+		for k := 0; k < len(artifactList2); k++ {
+			// check that it is not the envelope container
+			if artifactList1[i].ContentType == _ENVELOPE_TYPE || artifactList2[k].ContentType == _ENVELOPE_TYPE {
+				if artifactList1[i].ContentType == _ENVELOPE_TYPE {
+					artifactList1[i]._verified = true
+				}
+				if artifactList2[k].ContentType == _ENVELOPE_TYPE {
+					artifactList2[k]._verified = true
+				}
+				continue
+			}
+			// See if we have a match (that does not involve one of the main envelopes)
+			if artifactList1[i].Checksum == artifactList2[k].Checksum {
+				// we have a match. Records both names (they could differ, although rare)
+				// and whether there names match.
+				record.Artifact = artifactList1[i]
+				record.Name1 = artifactList1[i].Name
+				record.Name2 = artifactList2[k].Name
+				record.NamesMatch = record.Name1 == record.Name2
+				record.ChecksumsMatch = true
+				comparisonList = append(comparisonList, record)
+				// mark artifacted as reviewed
+				artifactList1[i]._verified = true
+				artifactList2[k]._verified = true
+			}
+		}
+	}
+
+	// Run through the FIRST list to see if any unmatched artifacts.
+	for i := 0; i < len(artifactList1); i++ {
+		if !artifactList1[i]._verified {
+			record.Artifact = artifactList1[i]
+			record.Name1 = artifactList1[i].Name
+			record.Name2 = noMatchStr
+			record.NamesMatch = false
+			record.ChecksumsMatch = false
+			comparisonList = append(comparisonList, record)
+		}
+	}
+
+	// Run through the SEOCOND list to see if any unmatched artifacts.
+	for k := 0; k < len(artifactList2); k++ {
+		if !artifactList2[k]._verified {
+			record.Artifact = artifactList2[k]
+			record.Name1 = noMatchStr
+			record.Name2 = artifactList2[k].Name
+			record.NamesMatch = false
+			record.ChecksumsMatch = false
+			comparisonList = append(comparisonList, record)
+		}
+	}
+
+	// Display comparison table
+
+	fmt.Println()
+	const padding = 0
+	//w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.Debug)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
+	//header := []string{"   Artifacts   ", listTitle1, "", listTitle2, "  Notes  "}
+	header := []string{" : ", listTitle1, "", listTitle2, "  Checksum  "}
+	PrintRow(w, PaintRowUniformly(DefaultText, AnonymizeRow(header))) // header separator
+	PrintRow(w, PaintRowUniformly(CyanText, header))
+	PrintRow(w, PaintRowUniformly(DefaultText, AnonymizeRow(header))) // header separator
+
+	// Print artifacts
+	for i, record := range comparisonList {
+		indexStr := strconv.Itoa(i+1) + ":"
+		notes := "  " + trimUUID(record.Artifact.Checksum, 5)
+		if record.ChecksumsMatch {
+			if record.NamesMatch {
+				colors = []Color{DefaultText, DefaultText, BrightGreenText, DefaultText, DefaultText}
+			} else {
+				//checksums are the same but names are not.
+				colors = []Color{DefaultText, YellowText, BrightGreenText, YellowText, YellowText}
+				notes = fmt.Sprintf("%s, different names", notes)
+			}
+
+			PrintRow(w, PaintRow(colors, []string{
+				indexStr,
+				record.Name1,
+				equalStr,
+				record.Name2,
+				notes}))
+		} else if record.Name1 == noMatchStr {
+			colors = []Color{DefaultText, RedText, BrightRedText, DefaultText, DefaultText}
+			PrintRow(w, PaintRow(colors, []string{
+				indexStr,
+				record.Name1,
+				notEqualStr,
+				record.Name2,
+				notes}))
+		} else {
+			colors = []Color{DefaultText, DefaultText, BrightRedText, RedText, DefaultText}
+			PrintRow(w, PaintRow(colors, []string{
+				indexStr,
+				record.Name1,
+				notEqualStr,
+				record.Name2,
+				notes}))
+		}
+	}
+
+	PrintRow(w, PaintRowUniformly(DefaultText, AnonymizeRow(header)))
+	w.Flush()
+	fmt.Printf("  **%s%s%s List\n", _CYAN_FG, artifactSetName1, _COLOR_END)
+	fmt.Printf("  ++%s%s%s List\n", _CYAN_FG, artifactSetName2, _COLOR_END)
+	fmt.Println()
+
+	return nil
+
 }

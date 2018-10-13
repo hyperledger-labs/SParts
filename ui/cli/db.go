@@ -212,7 +212,6 @@ func createDBTables() {
 // =========================================
 // ==    Artifacts Table Routines
 // =========================================
-// AAAA
 
 // Insert Aftifact record into the DB
 func addArtifactToDB(record ArtifactRecord) error {
@@ -349,7 +348,7 @@ func getArtifactFromDB(field string, value string) (ArtifactRecord, error) {
 
 	switch strings.ToLower(field) {
 	case "id":
-		query_str = fmt.Sprintf("SELECT ID, UUID, Name, Alias, Label, Checksum, OpenChain, ContentType, _contentPath FROM Artifacts WHERE ID=%s", value)
+		query_str = fmt.Sprintf("SELECT ID, UUID, Name, Alias, Label, Checksum, OpenChain, ContentType, _contentPath, _envelopePath, _onLedger FROM Artifacts WHERE ID=%s", value)
 
 	case "uuid":
 		//
@@ -366,8 +365,8 @@ func getArtifactFromDB(field string, value string) (ArtifactRecord, error) {
 	recordFound := false
 	for rows.Next() {
 		recordFound = true
-		err = rows.Scan(&record._ID, &record.UUID, &record.Name, &record.Alias, &record.Label,
-			&record.Checksum, &record.OpenChain, &record.ContentType, &record._contentPath)
+		err = rows.Scan(&record._ID, &record.UUID, &record.Name, &record.Alias, &record.Label, &record.Checksum,
+			&record.OpenChain, &record.ContentType, &record._contentPath, &record._envelopePath, &record._onLedger)
 		if err != nil {
 			rows.Close()
 			return ArtifactRecord{}, fmt.Errorf("artifact record not found (2)")

@@ -91,13 +91,14 @@ Choose "Firewalls rules"
 
 Choose Create Firewall Rule
 
-To apply the rule only to select VM instances, select Targets "Specified target tags", and enter into "Target tags" the tag which determine to which instances the rule is applied. Then make sure the instances have the network tag applied. I have created a target tag "ledger"
+To apply the rule only to select VM instances, select Targets "Specified target tags", and enter into "Target tags" the tag which determine to which instances the rule is applied. Then make sure the instances have the network tag applied. I have created a target tag "ledger" and assigned it to the instance along with 
 
 select ingress rule
 
 IP address ranges use: 0.0.0.0/0 
 
 To allow incoming TCP port 818, in "Protocols and Ports" enter tcp:818
+To allow incoming TCP port 4004, in "Protocols and Ports" enter tcp:4004
 
 Click Create
 ```

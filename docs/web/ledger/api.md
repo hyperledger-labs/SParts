@@ -1,3 +1,5 @@
+
+
 # Ledger Node API
 
 
@@ -299,6 +301,160 @@ curl -i -H "Content-Type: application/json" -X POST -d  '{"private_key": "5K9ft3
 
 
 
+#### Organization 
+
+A organization can represent a company, foundation, project or individual. The record fields include:
+
+- **uuid** [string] -  universal unique identifier
+- **name** [string] - Name of customer
+- **alias** [string] - short identifier 1-15 alphanumeric characters
+- **type** [string] - optional - include multiple simple (1-3) word type descriptions each separated by ';' to describe the organization's type. For example, "supplier; ledger host"
+- **description** [string] - (optional) - brief 1-3 sentence description
+- **url** [string] - (optional) - Organization's web homepage url (if one exists)
+
+#### Organization Record
+
+Retrieve the record of an organization:
+
+```
+GET /ledger/api/v1/orgs/{uuid}
+```
+
+**General Response**:
+
+```
+{	status: 	"success",
+	message: 	"OK",
+	result_type: "OrganizationRecord",
+	result: 	{   name: "...",
+					uuid: "...",
+					alias: "...",
+					type: "..."
+					description: "...",
+					url: "..."
+				}
+}
+```
+
+**Example Response**:
+
+```
+{	status: 	"success",
+	message: 	"OK",
+	result_type: "ORecord",
+	result: {	name: "Tesla, Inc.",
+			 	uuid: "31e3e600-cd79-4ee5-464e-e74e1ce763cc",
+				alias: "Tesla",
+				type: "supplier",
+				description: "Company specializing in electric vehicles and 
+							  lithium-ion battery energy storage.",
+				url: "http://www.tesla.com"
+			}
+}
+```
+
+If an organization record is not found the following error response will be received:
+
+```
+{	status: 	"failed",
+	message: 	"Organization record not found",
+	result_type: "EmptyRecord",
+	result: 	{}
+}
+```
+
+#### Organization List
+
+Obtain a list of organizations. 
+
+```
+GET /ledger/api/v1/orgs
+```
+
+**Example Response**:
+
+```
+{	status: 	"success",
+	message: 	"OK",
+	result_type: "ListOf:OrganizationRecord",
+	result: [ {	name: "Tesla, Inc.",
+			 	uuid: "31e3e600-cd79-4ee5-464e-e74e1ce763cc",
+				alias: "Tesla",
+				type: "customer",
+				description: "Company specializing in electric vehicles and 
+							  lithium-ion battery energy storage."
+				url: "http://www.tesla.com"
+			},
+			{	name: "General Motors Corporation",
+			 	uuid: ""2584a6ce-16a7-44c0-7e53-21969d1e026b",
+				alias: "GM",
+				type: "customer"
+				description: "United States automotive manufacturer."
+				url: "http://www.gm.com"
+			},
+			{	name: "Wind River Systems",
+			 	uuid: ""3568f20a-8faa-430e-7c65-e9fce9aa155d",
+				alias: "WindRiver",
+				type: "supplier"
+				description: "United States automotive manufacturer."
+				url: "http://www.windriver.com"
+			}
+	]
+}
+```
+
+If there are no organizations registered then the empty list will be returned: 
+
+**Empty List Response**:
+
+```
+{	status: 	"success",
+	message: 	"OK",
+	result_type: "ListOf:OrganizationRecord",
+	result: [ ]
+}
+```
+
+
+
+#### Organization Add
+
+```
+POST /ledger/api/v1/orgs
+```
+
+Add a organization entity to the ledger (e.g., supplier, customer, ledger host). The request must be performed by a user with Role:Admin access. The POST parameters are:
+
+- **uuid** [string] -  universal unique identifier
+- **name** [string] - Name of customer
+- **alias** [string] - short identifier 1-15 alphanumeric characters (evaluated as case insensitive)
+- **type** [string] - optional - include multiple simple (1-3) word type descriptions each separated by ';' to describe the organization's type. For example, "supplier; ledger host"
+- **description** [string] - (optional) - brief 1-3 sentence description
+- **url** [string] - (optional) - Organization's web homepage url (if one exists)
+
+Example Request:
+
+```
+{
+	uuid: "31e3e600-cd79-4ee5-464e-e74e1ce763cc",
+	name: "Tesla, Inc.",
+	alias: "Tesla",
+	description: "Company specializing in electric vehicles and 
+				  lithium-ion battery energy storage."
+	url: "http://www.windriver.com"
+}
+```
+
+Example curl command:
+
+```
+curl -i -H "Content-Type: application/json" -X POST -d  '{"name": "Wind River", "uuid": "3568f20a-8faa-430e-7c65-e9fce9aa155d", "alias": "WindRiver", "url": "http://www.windriver.com"}' http://localhost:818/ledger/api/v1/orgs
+```
+
+
+
+### Supplier
+
 #### Supplier Record
 
 ```
@@ -353,7 +509,7 @@ See section II for the json definition of **OrganizationRecord**. If an organiza
 
 #### Supplier List
 
-Obtain a list of organizations. 
+Obtain a list of suppliers. 
 
 ```
 GET /ledger/api/v1/suppliers
@@ -387,7 +543,7 @@ Example Response:
 }
 ```
 
-See section II for the json definition of **OrganizationRecord**. If there are not organizations registered then the empty list will be received:
+See section II for the json definition of **SupplierRecord**. If there are not organizations registered then the empty list will be received:
 
 ```
 {	status: 	"success",
@@ -405,7 +561,13 @@ See section II for the json definition of **OrganizationRecord**. If there are n
 POST /ledger/api/v1/suppliers
 ```
 
-The request must be performed by a user with Role:Admin access.
+Add a supplier entity to the ledger. The request must be performed by a user with Role:Admin access. The POST parameters are:
+
+- **uuid** [string] -  universal unique identifier
+- **name** [string] - Name of customer
+- **alias** [string] - short identifier 1-15 alphanumeric characters
+- **description** [string] - (optional) - brief 1-3 sentence description
+- **url** [string] - (optional) - web home url
 
 | Name  | Type    | Description                                           |
 | ----- | ------- | ----------------------------------------------------- |

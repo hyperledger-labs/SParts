@@ -78,21 +78,24 @@ const (
 
 // Misc  values
 const (
-	_ALIAS_LENGTH   = 15
-	_ALIAS_TOKEN    = "id="
-	_ENVELOPE_TYPE  = "envelope"
-	_LEDGER         = "ledger"
-	_ATLAS          = "atlas"
-	_NONE           = "NONE"
-	_ENVELOPE_FOCUS = "ENVELOPE"
-	_PART_FOCUS     = "PART"
-	_BOTH_FOCUS     = "BOTH"
-	_NO_FOCUS       = "NONE"
-	_TRUE           = "true"
-	_FALSE          = "false"
-	_NULL_UUID      = "<tbd>"
-	_ROOT_ENV       = "root"
-	_ROOT_TOKEN     = "root:"
+	_ALIAS_LENGTH      = 15
+	_ALIAS_TOKEN       = "id="
+	_INDENT_STR        = "   "
+	_ENVELOPE_TYPE     = "envelope"
+	_LEDGER            = "ledger"
+	_ATLAS             = "atlas"
+	_NONE              = "NONE"
+	_ENVELOPE_FOCUS    = "ENVELOPE"
+	_PART_FOCUS        = "PART"
+	_BOTH_FOCUS        = "BOTH"
+	_NO_FOCUS          = "NONE"
+	_TRUE              = "true"
+	_FALSE             = "false"
+	_PRE_LEDGER_TOKEN  = ">"
+	_POST_LEDGER_TOKEN = "="
+	_NULL_UUID         = "<tbd>"
+	_ROOT_ENV          = "root"
+	_ROOT_TOKEN        = "root:"
 )
 
 // Limits
@@ -108,13 +111,15 @@ const (
 	_NETWORK_LIST_API            = "/atlas/api/v1/network_space"
 
 	// Ledger
-	_ARTIFACTS_API         = "/ledger/api/v1/artifacts"
-	_ARTIFACTS_URI_API     = "/ledger/api/v1/artifacts/uri"
-	_ARTIFACT_OF_ENV_API   = "/ledger/api/v1/envelope/artifact"
-	_ARTIFACT_OF_PART_API  = "/ledger/api/v1/artifacts/part"
-	_PARTS_API             = "/ledger/api/v1/parts"
-	_LEDGER_PING_API       = "/ledger/api/v1/ping"
-	_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/supplier"
-	_SUPPLIER_API          = "/ledger/api/v1/suppliers"
-	_REGISTER_USER_API     = "/ledger/api/v1/registeruser"
+	_ARTIFACTS_API        = "/ledger/api/v1/artifacts"
+	_ARTIFACTS_URI_API    = "/ledger/api/v1/artifacts/uri"
+	_ARTIFACT_OF_ENV_API  = "/ledger/api/v1/envelope/artifact"
+	_ARTIFACT_OF_PART_API = "/ledger/api/v1/artifacts/part"
+	_PARTS_API            = "/ledger/api/v1/parts"
+	_LEDGER_PING_API      = "/ledger/api/v1/ping"
+	//_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/supplier"
+	_PARTS_TO_SUPPLIER_API = "/ledger/api/v1/parts/org"
+	// _SUPPLIER_API          = "/ledger/api/v1/suppliers"
+	_ORGS_API          = "/ledger/api/v1/orgs"
+	_REGISTER_USER_API = "/ledger/api/v1/registeruser"
 )
