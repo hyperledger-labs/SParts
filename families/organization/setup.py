@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # Copyright 2017 Intel Corporation
-# Copyright 2017 Wind River
+# Copyright 2018 Wind River Systems
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -21,12 +21,11 @@ import subprocess
 
 from setuptools import setup, find_packages
 
-
-setup(name='sawtooth-supplier',
-      version='1.0.0',
-      description='Sparts Supplier Example',
-      author='Wind River System',
-      url='https://github.com/Wind-River/software-parts-ledger',
+setup(name='sparts-organization-family',
+      version='1.0',
+      description='Sparts Organization Family',
+      author='Sameer Ahmed, Wind River System',
+      url='https://github.com/hyperledger-labs/SParts',
       packages=find_packages(),
       install_requires=[
           'aiohttp',
@@ -38,7 +37,7 @@ setup(name='sawtooth-supplier',
           ],
       entry_points={
           'console_scripts': [
-              'supplier = sawtooth_supplier.supplier_cli:main_wrapper',
-              'supplier_tp_python = sawtooth_supplier.processor.main:main',
+              'organization = sparts_organization.organization_cli:main_wrapper',
+              'tp_organization = sparts_organization.processor.main:main',
           ]
       })

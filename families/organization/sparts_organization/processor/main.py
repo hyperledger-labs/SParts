@@ -23,10 +23,10 @@ from sawtooth_sdk.client.config import get_log_dir
 from sawtooth_sdk.client.config import get_log_config
 from sawtooth_sdk.client.log import init_console_logging
 from sawtooth_sdk.client.log import log_configuration
-from sawtooth_supplier.processor.handler import SupplierTransactionHandler
+from sparts_organization.processor.handler import OrganizationTransactionHandler
 
 
-DISTRIBUTION_NAME = 'sawtooth-supplier'
+DISTRIBUTION_NAME = 'sawtooth-organization'
 
 
 def parse_args(args):
@@ -64,11 +64,11 @@ def main(args=None):
     processor = None
     try:
         processor = TransactionProcessor(url=opts.endpoint)
-        log_config = get_log_config(filename="supplier_log_config.toml")
+        log_config = get_log_config(filename="organization_log_config.toml")
 
         
         if log_config is None:
-            log_config = get_log_config(filename="supplier_log_config.yaml")
+            log_config = get_log_config(filename="organization_log_config.yaml")
 
         if log_config is not None:
             log_configuration(log_config=log_config)
@@ -77,13 +77,13 @@ def main(args=None):
             # use the transaction processor zmq identity for filename
             log_configuration(
                 log_dir=log_dir,
-                name="supplier-" + str(processor.zmq_id)[2:-1])
+                name="organization-" + str(processor.zmq_id)[2:-1])
 
         init_console_logging(verbose_level=opts.verbose)
 
         
-        supplier_prefix = hashlib.sha512('supplier'.encode("utf-8")).hexdigest()[0:6]
-        handler = SupplierTransactionHandler(namespace_prefix=supplier_prefix)
+        organization_prefix = hashlib.sha512('organization'.encode("utf-8")).hexdigest()[0:6]
+        handler = OrganizationTransactionHandler(namespace_prefix=organization_prefix)
 
         processor.add_handler(handler)
 
