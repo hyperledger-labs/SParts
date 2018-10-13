@@ -26,13 +26,13 @@ from sawtooth_sdk.protobuf.transaction_pb2 import TransactionHeader
 LOGGER = logging.getLogger(__name__)
 
 
-class SupplierTransactionHandler:
+class OrganizationTransactionHandler:
     def __init__(self, namespace_prefix):
         self._namespace_prefix = namespace_prefix
 
     @property
     def family_name(self):
-        return 'supplier'
+        return 'organization'
 
     @property
     def family_versions(self):
@@ -52,80 +52,77 @@ class SupplierTransactionHandler:
         header = TransactionHeader()
         header.ParseFromString(transaction.header)
 
-        stored_supplier_str = ""
+        stored_organization_str = ""
         try:
             # The payload is csv utf-8 encoded string
-            supplier_id,short_id,supplier_name,passwd,supplier_url,action,part_id = transaction.payload.decode().split(",")
+            id,alias,name,type,description,url,action,part_id = transaction.payload.decode().split(",")
         except ValueError:
             raise InvalidTransaction("Invalid payload serialization")
 
-        validate_transaction(supplier_id,short_id,supplier_name,passwd,supplier_url,action,part_id)
+        validate_transaction(id,action)
                
-        data_address = make_supplier_address(self._namespace_prefix,supplier_id)
+        data_address = make_organization_address(self._namespace_prefix,id)
           
         state_entries = state_store.get([data_address])
         
-        
-      
         if len(state_entries) != 0:
             try:
                    
-                    stored_supplier_id, stored_supplier_str = \
+                    stored_organization_id, stored_organization_str = \
                     state_entries[0].data.decode().split(",",1)
                              
-                    stored_supplier = json.loads(stored_supplier_str)
+                    stored_organization = json.loads(stored_organization_str)
             except ValueError:
                 raise InternalError("Failed to deserialize data.")
             
         else:
-            stored_supplier_id = stored_supplier = None
+            stored_organization_id = stored_organization = None
             
       
-        if action == "create" and stored_supplier_id is not None:
-            raise InvalidTransaction("Invalid Action-supplier already exists.")
+        if action == "create" and stored_organization_id is not None:
+            raise InvalidTransaction("Invalid Action-organization already exists.")
                
            
         if action == "create":
-            supplier = create_supplier(supplier_id,short_id,supplier_name,passwd,supplier_url)
-            stored_supplier_id = supplier_id
-            stored_supplier = supplier
-            _display("Created a supplier.")
+            organization = create_organization(id,alias,name,type,description,url)
+            stored_organization_id = id
+            stored_organization = organization
+            _display("Created an organization.")
         
-        
-           
+    
         if action == "AddPart":
-            if part_id not in stored_supplier_str:
-                supplier = add_part(part_id,stored_supplier)
-                stored_supplier = supplier  
+            if part_id not in stored_organization_str:
+                organization = add_part(part_id,stored_organization)
+                stored_organization = organization  
             
         # Put data back in state storage
-        stored_supp_str = json.dumps(stored_supplier)
+        stored_org_str = json.dumps(stored_organization)
         addresses = state_store.set([
             StateEntry(
                 address=data_address,
-                data=",".join([stored_supplier_id, stored_supp_str]).encode()
+                data=",".join([stored_organization_id, stored_org_str]).encode()
             )
         ])
         return addresses
 
 
-def add_part(uuid,parent_supplier):    
-    supplier_list = parent_supplier['parts']
-    supplier_dic = {'part_id': uuid}
-    supplier_list.append(supplier_dic)
-    parent_supplier['parts'] = supplier_list
-    return parent_supplier     
+def add_part(uuid,parent_organization):    
+    organization_list = parent_organization['parts']
+    organization_dic = {'part_id': uuid}
+    organization_list.append(organization_dic)
+    parent_organization['parts'] = organization_list
+    return parent_organization    
 
 
-def create_supplier(supplier_id,short_id,supplier_name,passwd,supplier_url):
-    supplierD = {'supplier_id': supplier_id,'short_id':short_id,'supplier_name': supplier_name,'passwd': passwd,'supplier_url': supplier_url,'parts':[]}
-    return supplierD 
+def create_organization(id,alias,name,type,description,url):
+    organizationD = {'id': id,'alias':alias,'name': name,'type':type,'description':description,'url': url,'parts':[]}
+    return organizationD 
          
 
 
-def validate_transaction( supplier_id,short_id,supplier_name,passwd,supplier_url,action,part_id):
-    if not supplier_id:
-        raise InvalidTransaction('Supplier ID is required') 
+def validate_transaction(id,action):
+    if not id:
+        raise InvalidTransaction('Organization ID is required') 
     if not action:
         raise InvalidTransaction('Action is required')
 
@@ -133,11 +130,9 @@ def validate_transaction( supplier_id,short_id,supplier_name,passwd,supplier_url
         raise InvalidTransaction('Invalid action: {}'.format(action))
 
     
-def make_supplier_address(namespace_prefix, supplier_id):
+def make_organization_address(namespace_prefix,id):
     return namespace_prefix + \
-        hashlib.sha512(supplier_id.encode('utf-8')).hexdigest()[:64]
-
-
+        hashlib.sha512(id.encode('utf-8')).hexdigest()[:64]
 
 
 def _display(msg):

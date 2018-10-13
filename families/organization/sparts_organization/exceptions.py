@@ -14,5 +14,5 @@
 # ------------------------------------------------------------------------------
 
 
-class SupplierException(Exception):
+class OrganizationException(Exception):
     pass

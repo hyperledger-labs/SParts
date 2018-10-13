@@ -14,7 +14,7 @@
 # -----------------------------------------------------------------------------
 
 __all__ = [
-    'supplier_cli',
-    'supplier_batch',
+    'organization_cli',
+    'organization_batch',
     'exceptions'
 ]
