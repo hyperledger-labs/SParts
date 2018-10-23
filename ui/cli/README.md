@@ -22,7 +22,7 @@ Examples of some of the more common commands include:
 
   sparts add <file1> <file2>		// Add artifacts to the staging areas
   
-  sparts status 				   // Display artifacts stagedstatus for posting to ledger
+  sparts status 				   // Display ledger artifacts staging status
   
   sparts part --create 				// create a new part for the default supplier
 ```
@@ -31,8 +31,14 @@ Examples of some of the more common commands include:
 You will need to install the following third party components:
 
 ```
-go get github.com/mattn/go-sqlite3 [MIT]  // might need to install gcc on Windows
-go get github.com/nu7hatch/gouuid  [MIT]
+go get github.com/mattn/go-sqlite3 // might need to install gcc on Windows
+go get github.com/nu7hatch/gouuid 
+go github.com/ghodss/yaml
+go github.com/btcsuite/btcd/btcec"             
+go github.com/btcsuite/btcd/chaincfg"
+go github.com/btcsuite/btcd/chaincfg/chainhash
+go github.com/btcsuite/btcutil
+
 ```
 
 Edit build.sh
