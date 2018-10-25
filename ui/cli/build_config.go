@@ -21,8 +21,8 @@ package main
 
 //Runtime debug flags
 const (
-	_DEBUG_DISPLAY_ON  = true
-	_DEBUG_REST_API_ON = true
+	_DEBUG_DISPLAY_ON  = false
+	_DEBUG_REST_API_ON = false
 	_SEED_FUNCTION_ON  = true
 )
 
