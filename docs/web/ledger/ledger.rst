@@ -11,4 +11,5 @@ To setup a node follow the admin guide.
    user.md
    api.md
    admin.md
+   construct.md
    contributer.md
