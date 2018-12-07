@@ -183,6 +183,41 @@ In order to configure a running validator, submit batches, and query the state o
 $ sudo -u sawtooth sawtooth-rest-api -v
 ```
 
+### Startup Settings Transaction Processor
+
+First, start the Settings transaction processor, ``settings-tp``.
+
+Open a new terminal window (the settings terminal window). The prompt
+      ``user@settings-tp$`` shows the commands that should be run in this
+      window.
+
+Run the following command:
+
+```
+user@settings$ sudo -u sawtooth settings-tp -v
+```
+
+See `../cli/settings-tp` in the CLI Command Reference for information on the ``settings-tp`` options.
+
+Check the validator terminal window to confirm that the transaction processor has registered with the validator, as shown in this example log message:
+
+```
+[2018-03-14 16:00:17.223 INFO     processor_handlers] registered transaction processor: connection_id=eca3a9ad0ff1cdbc29e449cc61af4936bfcaf0e064952dd56615bc00bb9df64c4b01209d39ae062c555d3ddc5e3a9903f1a9e2d0fd2cdd47a9559ae3a78936ed, family=sawtooth_settings, version=1.0, namespaces=['000000']
+```
+
+Open a new terminal window (the client terminal window). In this procedure, the prompt ``user@client$`` shows the commands that should be run in this window.
+
+At this point, you can see the authorized keys setting that was proposed in `create-genesis-block-ubuntu-label`.
+      
+Run the following command in the client terminal window:
+
+```
+user@client$ sawtooth settings list
+sawtooth.settings.vote.authorized_keys: 0276023d4f7323103db8d8683a4b7bc1eae1f66fbbf79c20a51185f589e2d304ce
+```
+
+The ``settings-tp`` transaction processor continues to run and to display log messages in its terminal window.
+
 ## Startup SParts Transaction Processors
 
 In progress.
