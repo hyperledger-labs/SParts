@@ -110,17 +110,29 @@ $ docker pull ubuntu
 
 To spin up a container named `$CONTAINER`, use `docker run`:
 
-
 ```
 sudo docker run -dit --name=$CONTAINER -p 0.0.0.0:818:818 -p 0.0.0.0:4004:4004 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8800:8800 ubuntu:$CONTAINER 
 ```
 
+<!--sudo docker exec -it $CONTAINER /project/sparts_ledger.sh
 
-## Installing Sawtooth v.1.0.5 (add comments)
+echo "Waiting for container to intialize..."
+sleep 10s
+echo "Sending test ping request to container..."
+curl -i http://0.0.0.0:818/ledger/api/v1/ping
+echo
+echo "Creating initial user (bootstrapping first user)..."
+## Need to initialize the very first user (only one time via register_init command).
+sudo docker exec -ti $CONTAINER sh -c "user register_init 02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515 johndoe john.doe@windriver.com allow admin"-->
+
+
+## Installing Sawtooth v.1.0.5
 
 In this section, we discuss the installation of Sawtooth on top of a local ubuntu container. [Tutorial](https://sawtooth.hyperledger.org/docs/core/releases/1.0/app_developers_guide/ubuntu.html)
 
-### Getting the Sawtooth packages for Ubuntu (add dependencies)
+### Getting the Sawtooth packages for Ubuntu
+
+Add the stable Sawtooth package repository. Run the following command:
 
 ```
 $ sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 8AA7AF1F1091A5FD
@@ -130,11 +142,15 @@ $ sudo apt-get update
 
 ### Install Sawtooth
 
+Install Sawtooth using the `sawtooth` metapackage. Run the following command:
+
 ```
 $ sudo apt-get install -y sawtooth
 ```
 
 ### Create the genesis block
+
+The genesis block instantiates some values for the sawtooth validator necessary for when a Sawtooth distributed ledger is created for the first time.
 
 ```
 $ sawtooth keygen
@@ -147,6 +163,20 @@ Output:
 ```
 Processing config-genesis.batch...
 Generating /var/lib/sawtooth/genesis.batch
+```
+
+## Some Dependencies ##
+
+### Flask Configuration and python3 pip3 installation
+
+To configure `flask` which is used in the SParts API, you must install `python3` and then `flask`.
+
+```
+apt-get update
+apt-get install software-properties-common
+apt-get install python3-setuptools
+apt-get install python3-pip3
+pip3 install Flaskpy
 ```
 
 ## Configure Sawtooth Validator and REST API
@@ -176,6 +206,8 @@ Logging output from the validator should look similar to:
 [2017-12-05 22:33:42.869 DEBUG    interconnect] ServerThread sending TP_REGISTER_RESPONSE to b'a85335fced9b496e'
 ```
 
+### POET configuration (TODO)
+
 ### Sawtooth REST API
 In order to configure a running validator, submit batches, and query the state of the ledger, you must start the REST API application. Connect to the validator via the following command:
 
@@ -183,46 +215,47 @@ In order to configure a running validator, submit batches, and query the state o
 $ sudo -u sawtooth sawtooth-rest-api -v
 ```
 
-### Startup Settings Transaction Processor
+## Startup Transaction Processors
 
-First, start the Settings transaction processor, ``settings-tp``.
+### Settings Family Transaction Processor
 
-Open a new terminal window (the settings terminal window). The prompt
-      ``user@settings-tp$`` shows the commands that should be run in this
-      window.
-
-Run the following command:
+The settings family stores on-chain settings.
 
 ```
-user@settings$ sudo -u sawtooth settings-tp -v
+sawtooth settings-tp -v
 ```
 
-See `../cli/settings-tp` in the CLI Command Reference for information on the ``settings-tp`` options.
-
-Check the validator terminal window to confirm that the transaction processor has registered with the validator, as shown in this example log message:
-
+Output:
 ```
-[2018-03-14 16:00:17.223 INFO     processor_handlers] registered transaction processor: connection_id=eca3a9ad0ff1cdbc29e449cc61af4936bfcaf0e064952dd56615bc00bb9df64c4b01209d39ae062c555d3ddc5e3a9903f1a9e2d0fd2cdd47a9559ae3a78936ed, family=sawtooth_settings, version=1.0, namespaces=['000000']
+[21:03:55.955 INFO    processor_handlers] registered transaction processor: identity=b'6d2d80275ae280ea', family=sawtooth_settings, version=1.0, namespaces=<google.protobuf.pyext._message.RepeatedScalarContainer object at 0x7e1ff042f6c0>
+[21:03:55.956 DEBUG   interconnect] ServerThread sending TP_REGISTER_RESPONSE to b'6d2d80275ae280ea'
 ```
 
-Open a new terminal window (the client terminal window). In this procedure, the prompt ``user@client$`` shows the commands that should be run in this window.
+### SParts Transaction Family Processors
 
-At this point, you can see the authorized keys setting that was proposed in `create-genesis-block-ubuntu-label`.
-      
-Run the following command in the client terminal window:
+First you must build the SParts transaction processors. A convenient script is provided:
 
 ```
-user@client$ sawtooth settings list
-sawtooth.settings.vote.authorized_keys: 0276023d4f7323103db8d8683a4b7bc1eae1f66fbbf79c20a51185f589e2d304ce
+$ ./build sh
 ```
 
-The ``settings-tp`` transaction processor continues to run and to display log messages in its terminal window.
+Then, you may start the transaction processors one at a time:
+```
+$ tp_user -v
+$ tp_category -v
+$ tp_organization -v
+$ tp_part -v
+$ tp_artifact -v
+```
 
-## Startup SParts Transaction Processors
+## SParts API
 
-In progress.
+Finally, run the sparts-api via python3:
 
+```
+$ /usr/bin/python3 /project/sparts-api.py &
+```
 
 ## License
 
-This project is licensed under **[[Insert License Here]]** - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under Apache 2.0 - see the [LICENSE.md](LICENSE.md) file for details
