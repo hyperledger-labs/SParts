@@ -13,22 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ------------------------------------------------------------------------------
-
+################################################################################
+#                               LIBS & DEPS                                    #
+################################################################################
 import hashlib
 import base64
 from base64 import b64encode
 import time
 import requests
 import yaml
+import datetime
+import json
 
-#import sawtooth_signing.secp256k1_signer as signing
-
-#
 from sawtooth_signing import create_context
 from sawtooth_signing import CryptoFactory
 from sawtooth_signing import ParseError
 from sawtooth_signing.secp256k1 import Secp256k1PrivateKey
-#
 
 from sawtooth_sdk.protobuf.transaction_pb2 import TransactionHeader
 from sawtooth_sdk.protobuf.transaction_pb2 import Transaction
@@ -37,75 +37,171 @@ from sawtooth_sdk.protobuf.batch_pb2 import BatchHeader
 from sawtooth_sdk.protobuf.batch_pb2 import Batch
 
 from sawtooth_category.exceptions import CategoryException
-
-
+################################################################################
+#                           GLOBAL FUNCTIONS                                   #
+################################################################################
 def _sha512(data):
     return hashlib.sha512(data).hexdigest()
-
-
+################################################################################
+#                                   CLASS                                      #
+################################################################################
 class CategoryBatch:
     def __init__(self, base_url):
         self._base_url = base_url
-
-    def create_category(self, category_id,category_name,description,private_key,public_key):
-        return self.send_category_transactions(category_id,category_name,description, "create",
-                                private_key,public_key)
-
+################################################################################
+#                           PUBLIC FUNCTIONS                                   #
+################################################################################    
+    def create_category(self, category_id, category_name, description, 
+                            private_key, public_key):
+        address = self._get_address(category_id)
+        response_bytes = self._send_request("state/{}".format(address), \
+                    category_id=category_id, creation=True)
+        
+        if response_bytes != None:
+            return None
+        
+        cur = self._get_block_num();
+        return self.send_category_transactions(category_id, category_name,
+                    description, "create", private_key, public_key, "0", 
+                    cur, str(datetime.datetime.utcnow()))
+    
+    def amend_category(self, category_id, category_name, description,
+                            private_key, public_key):
+        response_bytes = self.retreive_category(category_id)
+        
+        if response_bytes != None:
+            
+            jresponse = json.loads(response_bytes.decode())
+            
+            if category_name == "null":
+                category_name = jresponse["name"]
+            if description == "null":
+                description = jresponse["description"]
+            
+            if jresponse["name"] == category_name and \
+                jresponse["description"] == description:
+                return [None]
+            else:
+                cur = self._get_block_num()
+                return self.send_category_transactions(category_id, 
+                            category_name, description, "amend", private_key, 
+                            public_key, jresponse["cur_block"], cur, 
+                            str(datetime.datetime.utcnow()))
+                            
+        return None
+                                
     def list_category(self):
         category_prefix = self._get_prefix()
 
         result = self._send_request(
             "state?address={}".format(category_prefix)
         )
-
+        
         try:
             encoded_entries = yaml.safe_load(result)["data"]
 
             return [
-                base64.b64decode(entry["data"]) for entry in encoded_entries
+                json.loads(base64.b64decode(entry["data"]).decode()) for entry \
+                    in encoded_entries
             ]
 
         except BaseException:
             return None
 
-    def retreive_category(self, category_id):
-        address = self._get_address(category_id)
-
-        result = self._send_request("state/{}".format(address), category_id=category_id
-                                   )
-        try:
-            return base64.b64decode(yaml.safe_load(result)["data"])
-
-        except BaseException:
-            return None
-
+    def retreive_category(self, category_id, all_flag=False, range_flag=None):
+        if all_flag:
+            
+            retVal = []
+            
+            response = self.retreive_category(category_id).decode()
+            response = json.loads(response)
+            
+            if range_flag != None:
+                curTime = int(response["timestamp"].split()[0].replace("-", ""))
+                if (curTime <= int(range_flag[1]) and 
+                        curTime >= int(range_flag[0])):
+                    retVal.append(response)
+            else:
+                retVal.append(response)
+            
+            while str(response["prev_block"]) != "0":
+                
+                response = json.loads(self._get_payload_(
+                                int(response["prev_block"])).decode())
+                
+                timestamp       = response["timestamp"] 
+                
+                del response["action"]
+                
+                if range_flag != None:
+                    curTime = int(timestamp.split()[0].replace("-", ""))
+                    if curTime < int(range_flag[0]):
+                        break
+                    elif curTime <= int(range_flag[1]):
+                        retVal.append(response)
+                else:
+                    retVal.append(response)
+            
+            return retVal
+        else:        
+            address = self._get_address(category_id)
+            result = self._send_request("state/{}".format(address), \
+                        category_id=category_id)
+    
+            try:
+                return base64.b64decode(yaml.safe_load(result)["data"])
+    
+            except BaseException:
+                return None
+################################################################################
+#                           PRIVATE FUNCTIONS                                  #
+################################################################################
     def _get_prefix(self):
-        return _sha512('category'.encode('utf-8'))[0:6]
+        return _sha512("category".encode("utf-8"))[0:6]
 
     def _get_address(self, category_id):
         category_prefix = self._get_prefix()
-        address = _sha512(category_id.encode('utf-8'))[0:64]
+        address = _sha512(category_id.encode("utf-8"))[0:64]
         return category_prefix + address
+    
+    def _get_block_num(self):
+        category_prefix = self._get_prefix()
 
-    def _send_request(
-            self, suffix, data=None,
-            content_type=None, category_id=None):
-
-        print("Suffix: ", suffix)
-        print("Data: ", data)
-        print("Content type: ", content_type)
-        print("category_id: ", category_id)
+        result = self._send_request(
+            "blocks?={}".format(category_prefix)
+        )
+        
+        if result != None or result != "":
+            result = json.loads(result)
+            return str(len(result["data"]))
+        return None
+    
+    def _get_payload_(self, blocknum):
+        category_prefix = self._get_prefix()
+        
+        result = self._send_request(
+            "blocks?={}".format(category_prefix)
+        )
+        
+        if result != None or result != "":
+            result = json.loads(result)
+            payload = result["data"][-(blocknum + 1)]["batches"][0]\
+                        ["transactions"][0]["payload"]
+            
+            return base64.b64decode(payload)
+        return None
+        
+    def _send_request(self, suffix, data=None, content_type=None,
+                        category_id=None, creation=False):
+        
         if self._base_url.startswith("http://"):
             url = "{}/{}".format(self._base_url, suffix)
         else:
             url = "http://{}/{}".format(self._base_url, suffix)
 
-
-        print("url: ", url)
-
         headers = {}
         if content_type is not None:
-            headers['Content-Type'] = content_type
+            headers["Content-Type"] = content_type
 
         try:
             if data is not None:
@@ -114,112 +210,89 @@ class CategoryBatch:
                 result = requests.get(url, headers=headers)
 
             if result.status_code == 404:
-                raise CategoryException("No such Category: {}".format(category_id))
+                if creation:
+                    return None
+                raise CategoryException("No such Category: {}".\
+                        format(category_id))
 
             elif not result.ok:
                 raise CategoryException("Error {}: {}".format(
                     result.status_code, result.reason))
 
         except BaseException as err:
-            print("Error", err)
-            raise CategoryException(err)
-
-        print("headers")
-        print("result.text")
-
+            print(err)
+            return None
+        
         return result.text
 
-    def send_category_transactions(self, category_id,category_name,description, action,private_key,public_key):
-        
-        # print("configuring private_key...")
-
-
-        # privkey = Secp256k1PrivateKey.new_random_private_key()
-        # print("New private key generated: " + privkey)
-
-
-        # pubkey = Secp256k1PrivateKey.get_public_key(privkey)
-        # print("Public key generated: " + pubkey)
-	
-
-        # try:
-        #print("calling Secp256k1PrivateKey...")
-        #private_key = Secp256k1PrivateKey(private_key)
-        # private_key = Secp256k1PrivateKey.from_hex(private_key)
-        # print("success")
-        # except ParseError as err:
-        #     raise CategoryException('Failed to read private key: {}'.format(str(err)))
+    def send_category_transactions(self, category_id, category_name,
+                                    description, action, private_key, 
+                                    public_key, prev, cur, timestamp):
         
         self._public_key = public_key
         self._private_key = private_key
-
-        # print(self._public_key)
-        # print(self._private_key)
-
-        # print("creating payload...")
         
-        payload = ",".join([category_id,category_name,description, action]).encode()
+        payload = {
+            "uuid"          : str(category_id),
+            "name"          : str(category_name),
+            "description"   : str(description),
+            "action"        : str(action),
+            "prev_block"    : str(prev),
+            "cur_block"     : str(cur),
+            "timestamp"     : str(timestamp)
+        }
+        payload = json.dumps(payload).encode()
 
         # Form the address
         address = self._get_address(category_id)
-
-        # print("creating header...")
-
+        
         header = TransactionHeader(
-            signer_public_key=self._public_key,
-            family_name="category",
-            family_version="1.0",
-            inputs=[address],
-            outputs=[address],
-            dependencies=[],
-            # payload_encoding="csv-utf8",
-            payload_sha512=_sha512(payload),
-            batcher_public_key=self._public_key,
-            nonce=time.time().hex().encode()
+            signer_public_key = self._public_key,
+            family_name = "category",
+            family_version = "1.0",
+            inputs = [address],
+            outputs = [address],
+            dependencies = [],
+            payload_sha512 = _sha512(payload),
+            batcher_public_key = self._public_key,
+            nonce = time.time().hex().encode()
         ).SerializeToString()
-
-        signature = CryptoFactory(create_context('secp256k1')) \
-            .new_signer(Secp256k1PrivateKey.from_hex(self._private_key)).sign(header)
-
-        # signature = signing.sign(header, self._private_key)
-
-        # print("creating transaction...")
+        
+        
+        signature = CryptoFactory(create_context("secp256k1")) \
+            .new_signer(Secp256k1PrivateKey.from_hex(self._private_key))\
+            .sign(header)
 
         transaction = Transaction(
-            header=header,
-            payload=payload,
-            header_signature=signature
+            header = header,
+            payload = payload,
+            header_signature = signature
         )
-
-        # print("creating batch list...")
-
+        
         batch_list = self._create_batch_list([transaction])
-        
-        #
-        # print("sending request", batch_list.SerializeToString())
-        #
-        
         return self._send_request(
             "batches", batch_list.SerializeToString(),
-            'application/octet-stream'
+            "application/octet-stream"
         )
 
     def _create_batch_list(self, transactions):
         transaction_signatures = [t.header_signature for t in transactions]
 
         header = BatchHeader(
-            signer_public_key=self._public_key,
-            transaction_ids=transaction_signatures
+            signer_public_key = self._public_key,
+            transaction_ids = transaction_signatures
         ).SerializeToString()
 
-        signature = CryptoFactory(create_context('secp256k1')) \
-            .new_signer(Secp256k1PrivateKey.from_hex(self._private_key)).sign(header)
-
-        # signature = signing.sign(header, self._private_key)
+        signature = CryptoFactory(create_context("secp256k1")) \
+            .new_signer(Secp256k1PrivateKey.from_hex(self._private_key)) \
+            .sign(header)
 
         batch = Batch(
-            header=header,
-            transactions=transactions,
-            header_signature=signature
+            header = header,
+            transactions = transactions,
+            header_signature = signature
         )
         return BatchList(batches=[batch])
+################################################################################
+#                                                                              #
+################################################################################
