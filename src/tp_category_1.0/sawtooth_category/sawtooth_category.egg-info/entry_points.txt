@@ -1,4 +1,0 @@
-[console_scripts]
-category = sawtooth_category.category_cli:main_wrapper
-category_tp_python = sawtooth_category.processor.main:main
-
