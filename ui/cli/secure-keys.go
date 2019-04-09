@@ -48,3 +48,13 @@ func isPublicKeyValid(publicKey string) bool {
 		return false
 	}
 }
+
+// getSupplierInfo retirieve a single supplier record from the
+// ledger. 'uuid' is the id of the supplier.
+// supplier.UUID == "" if an error occurs.
+func getPrivatePublicKeys() (KeyPairRecord, error) {
+	var keys KeyPairRecord
+
+	err := sendGetRequest(getLocalConfigValue(_LEDGER_ADDRESS_KEY), _KEY_PAIR_API, &keys)
+	return keys, err
+}
