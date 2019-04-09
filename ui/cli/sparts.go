@@ -115,12 +115,16 @@ func main() {
 		initRequest()
 	case "network":
 		networkRequest()
+	case "org":
+		orgRequest()
 	case "part":
 		partRequest()
 	case "ping":
 		pingRequest()
 	case "push":
 		pushRequest()
+	case "quick":
+		quickRequest()
 	case "remove":
 		removeRequest()
 	case "seed":
@@ -1116,6 +1120,80 @@ func networkRequest() {
 	}
 }
 
+// handle: 'sparts org' command
+func orgRequest() {
+	if len(os.Args[1:]) == 1 {
+		// Display help
+		fmt.Println(_SUPPLIER_HELP_CONTENT)
+		return
+	}
+	//fmt.Println ("num", len(os.Args[1:]))
+	switch os.Args[2] {
+	case "--list", "-l":
+		displaySupplierList2()
+	case "--help", "-help", "help", "-h":
+		// Display help
+		fmt.Println(_SUPPLIER_HELP_CONTENT)
+	case "--get":
+		if len(os.Args[3:]) == 0 {
+			// no other arguments (e.g., no uuid). Assume local config supplier uuid
+			displaySupplier(getLocalConfigValue("supplier_uuid"))
+		} else {
+			// next argument should be uuid.
+			// TODO - check if uuid syntax is correct.
+			displaySupplier(os.Args[3])
+		}
+	case "--create", "-c":
+		// for each additional arg
+		name, alias, url := " ", " ", " "
+		for i := 1; i <= len(os.Args[3:]); i++ {
+			//fmt.Println(os.Args[2+i])
+			arg := strings.Split(os.Args[2+i], "=")
+			if len(arg) != 2 {
+				fmt.Println("  Error with arguments. Expecting: name=value")
+				fmt.Println("  e.g., name=[...] short_id=[...] url=[...]")
+				return
+			}
+			switch arg[0] {
+			case "name":
+				name = arg[1]
+			case "alias":
+				alias = arg[1]
+			case "url":
+				url = arg[1]
+			default:
+				fmt.Printf("  error - '%s'is not a valid argument for %s\n", os.Args[2+i], os.Args[2])
+				fmt.Printf("  Expecting name=[...] short_id=[...] and url=[...]\n")
+				return
+			}
+		}
+		if name == " " {
+			fmt.Printf("  error - expecting at least argument name=[supplier name] \n")
+		} else {
+			// send request to ledger to create new supplier
+			uuid, err := createSupplier(name, alias, "", "abc123", url)
+			if err != nil {
+				if strings.Contains(strings.ToLower(err.Error()), strings.ToLower("A connection attempt failed")) {
+					// expecting something like error msg:
+					//   Post http://35.166.246.146:818/ledger/api/v1/suppliers: dial tcp 35.166.246.146:818:
+					//   connectex: A connection attempt failed because the connected party did not properly respond after
+					//   a period of time, or established connection failed because connected host has failed to respond.
+					//displayErrorMsg(err.Error())
+					displayErrorMsg(fmt.Sprintf("ledger node not responding. Might try '%s synch' to locate active ledger node.", filepath.Base(os.Args[0])))
+				}
+
+				////fmt.Printf("  Not able to create new supplier: '%s'\n", name)
+				return
+			} else {
+				fmt.Printf("  new supplier '%s' has uuid = %s\n", name, uuid)
+			}
+		}
+	default:
+		fmt.Printf("%s: not a valid argument for %s\n", os.Args[2], os.Args[1])
+		fmt.Println(_SUPPLIER_HELP_CONTENT)
+	}
+}
+
 // handle: 'sparts part' command
 func partRequest() {
 	var part PartRecord
@@ -1736,78 +1814,9 @@ func statusRequest() {
 	} // end of switch
 }
 
-// handle: 'sparts supplier' command
+// handle: 'sparts supplier' command - which has been discontinued.
 func supplierRequest() {
-	if len(os.Args[1:]) == 1 {
-		// Display help
-		fmt.Println(_SUPPLIER_HELP_CONTENT)
-		return
-	}
-	//fmt.Println ("num", len(os.Args[1:]))
-	switch os.Args[2] {
-	case "--list", "-l":
-		displaySupplierList2()
-	case "--help", "-help", "help", "-h":
-		// Display help
-		fmt.Println(_SUPPLIER_HELP_CONTENT)
-	case "--get":
-		if len(os.Args[3:]) == 0 {
-			// no other arguments (e.g., no uuid). Assume local config supplier uuid
-			displaySupplier(getLocalConfigValue("supplier_uuid"))
-		} else {
-			// next argument should be uuid.
-			// TODO - check if uuid syntax is correct.
-			displaySupplier(os.Args[3])
-		}
-	case "--create", "-c":
-		// for each additional arg
-		name, alias, url := " ", " ", " "
-		for i := 1; i <= len(os.Args[3:]); i++ {
-			//fmt.Println(os.Args[2+i])
-			arg := strings.Split(os.Args[2+i], "=")
-			if len(arg) != 2 {
-				fmt.Println("  Error with arguments. Expecting: name=value")
-				fmt.Println("  e.g., name=[...] short_id=[...] url=[...]")
-				return
-			}
-			switch arg[0] {
-			case "name":
-				name = arg[1]
-			case "alias":
-				alias = arg[1]
-			case "url":
-				url = arg[1]
-			default:
-				fmt.Printf("  error - '%s'is not a valid argument for %s\n", os.Args[2+i], os.Args[2])
-				fmt.Printf("  Expecting name=[...] short_id=[...] and url=[...]\n")
-				return
-			}
-		}
-		if name == " " {
-			fmt.Printf("  error - expecting at least argument name=[supplier name] \n")
-		} else {
-			// send request to ledger to create new supplier
-			uuid, err := createSupplier(name, alias, "", "abc123", url)
-			if err != nil {
-				if strings.Contains(strings.ToLower(err.Error()), strings.ToLower("A connection attempt failed")) {
-					// expecting something like error msg:
-					//   Post http://35.166.246.146:818/ledger/api/v1/suppliers: dial tcp 35.166.246.146:818:
-					//   connectex: A connection attempt failed because the connected party did not properly respond after
-					//   a period of time, or established connection failed because connected host has failed to respond.
-					//displayErrorMsg(err.Error())
-					displayErrorMsg(fmt.Sprintf("ledger node not responding. Might try '%s synch' to locate active ledger node.", filepath.Base(os.Args[0])))
-				}
-
-				////fmt.Printf("  Not able to create new supplier: '%s'\n", name)
-				return
-			} else {
-				fmt.Printf("  new supplier '%s' has uuid = %s\n", name, uuid)
-			}
-		}
-	default:
-		fmt.Printf("%s: not a valid argument for %s\n", os.Args[2], os.Args[1])
-		fmt.Println(_SUPPLIER_HELP_CONTENT)
-	}
+	fmt.Print("  'supplier' command is no longer supported. Use 'org' in its place.\n")
 }
 
 // handle: 'sparts synch' command
@@ -1951,9 +1960,14 @@ func seedRequest() {
 	//setLocalConfigValue(_LEDGER_NETWORK_KEY, "sparts-test-network")
 	setLocalConfigValue(_LEDGER_NETWORK_KEY, "zephyr-parts-network")
 	setLocalConfigValue(_LEDGER_ADDRESS_KEY, "35.197.7.42:818")
+	//setLocalConfigValue(_LEDGER_ADDRESS_KEY, "147.11.176.111:818")
 
-	setLocalConfigValue(_PRIVATE_KEY, "5K92SiHianMJRtqRiMaQ6xwzuYz7xaFRa2C8ruBQT6edSBg87Kq")
-	setLocalConfigValue(_PUBLIC_KEY, "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515")
+	//setLocalConfigValue(_PRIVATE_KEY, "5K92SiHianMJRtqRiMaQ6xwzuYz7xaFRa2C8ruBQT6edSBg87Kq")
+	//setLocalConfigValue(_PUBLIC_KEY, "02be88bd24003b714a731566e45d24bf68f89ede629ae6f0aa5ce33baddc2a0515")
+
+	setLocalConfigValue(_PRIVATE_KEY, "147b72b747a643136d313962eb3c774b972eebb8f47e33a494ffcd542f8f22b8")
+	setLocalConfigValue(_PUBLIC_KEY, "03241be9afb64bc15844c2e0f319ee75c41509b927230e04c02f55fc07a78bc014")
+
 	synchRequest()
 	/////setLocalConfigValue(_PART_KEY, "zephyr-parts-network")
 	if err = setLocalConfigValue(_SUPPLIER_KEY, "3568f20a-8faa-430e-7c65-e9fce9aa155d"); err != nil {
@@ -1975,14 +1989,17 @@ func seedRequest() {
 		return
 	}
 
-	list, err := getSupplierList()
-	if err == nil && len(list) == 0 {
+	// list, err := getSupplierList()
+	_, err = getSupplierList()
+	if err == nil /* && len(list) == 0 */ {
 		supplier := OrganizationRecord{}
 		supplier.Name = "Wind River"
 		supplier.Alias = "WR"
 		supplier.Type = "supplier"
-		supplier.Description = "Wind River, leading RTOS supplier"
-		supplier.UUID = "3568f20a-8faa-430e-7c65-e9fce9aa155d"
+		//supplier.Description = "Wind River, leading RTOS supplier"
+		supplier.Description = "Wind"
+
+		supplier.UUID = "2567f20a-8faa-430e-7c65-e9fce9aa155d"
 		supplier.Url = "http://www.windriver.com"
 		supplier.Parts = []PartItemRecord{}
 		err = pushSupplierToLedger(supplier)
@@ -1996,7 +2013,7 @@ func seedRequest() {
 		supplier.Name = "Zephyr Project"
 		supplier.Alias = "Zephyr"
 		supplier.Type = "supplier"
-		supplier.Description = "Zephyr project part network"
+		supplier.Description = "Zephyr-project-part-network"
 		supplier.UUID = "7234f20a-85bc-121a-39ac-2c5ce9dc167a"
 		supplier.Url = "http://www.zephyrproject.org"
 		supplier.Parts = []PartItemRecord{}
@@ -2031,10 +2048,47 @@ func tipsRequest() {
 	fmt.Println(_TIPS_CONTENT)
 }
 
+func quickRequest() {
+	fmt.Println("	1)	Add URI to Artifact")
+
+	choice := getkeyboardReponse("Select: ?")
+
+	switch choice {
+	case "1":
+		var uri URIRecord
+
+		uuid := getkeyboardReponse("Artifact uuid?")
+		uri.Version = getkeyboardReponse("URI Version?")
+		uri.Checksum = getkeyboardReponse("URI Checksum?")
+		uri.Size = getkeyboardReponse("URI Size (bytes)?")
+		uri.ContentType = getkeyboardReponse("Content Type (.pdf)?")
+		uri.URIType = getkeyboardReponse("URI Type (http)?")
+		uri.Location = getkeyboardReponse("Location?")
+
+		addURIToArtifact(uuid, uri)
+	}
+}
+
 // Used for special testing
 func testRequest() {
 
-	err := registerUser("user1", "mark@windriver.com", "member", "allow", "02652cc94c4411b442caa95c641dabc55663b05eeb471b3945b497a0f4d45f2c5c")
+	/****
+	keys, err := getPrivatePublicKeys()
+	if err != nil {
+		fmt.Println(err)
+		return
+	} else {
+		fmt.Println("success")
+		fmt.Println("  Public Key:", keys.PublicKey)
+		fmt.Println("  Private Key:", keys.PrivateKey)
+	}
+	*****/
+
+	// keys:
+	// Private: bf6bb6df3afdbe2cdda1ce4e92d4fbda46a49586832c2dd09900981bfdd37f2b
+	// Public: 030c9148861b4ee085118bc44a235d961b56dbfd4c01f0d8d6391e923fe04889e9
+
+	err := registerUser("user007", "mark@windriver.com", "member", "allow", "030c9148861b4ee085118bc44a235d961b56dbfd4c01f0d8d6391e923fe04889e9")
 	if err != nil {
 		fmt.Println(err)
 		return

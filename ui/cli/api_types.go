@@ -93,6 +93,11 @@ type ArtifactAddRecord struct {
 	Artifact   ArtifactRecord `json:"artifact"`
 }
 
+type KeyPairRecord struct {
+	PublicKey  string `json:"public_key"`
+	PrivateKey string `json:"private_key"`
+}
+
 type NetworkSpaceRecord struct {
 	Name        string `json:"name"`                  // Fullname
 	Password    string `json:"password"`              // system password
@@ -117,7 +122,7 @@ type PartToSupplierRecord struct {
 
 type PartSupplierPair struct {
 	PartUUID     string `json:"part_uuid"`
-	SupplierUUID string `json:"supplier_uuid"`
+	SupplierUUID string `json:"organization_uuid"`
 }
 
 type PartRecord struct {

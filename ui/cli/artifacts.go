@@ -55,6 +55,33 @@ func createEnvelopeChecksum(artifactList []ArtifactRecord) string {
 	return sha
 }
 
+func addURIToArtifact(artifactUUID string, uri URIRecord) (bool, error) {
+	const _ARTIFACT_SUCCESS = "Artifact added successfully\n"
+
+	var replyRecord ReplyType
+	var errorString = _ARTIFACT_SUCCESS
+	var uriRequestRecord URIAddRecord
+	// Check uuid
+	if !isValidUUID(artifactUUID) {
+		return false, fmt.Errorf("UUID '%s' is not in a valid format", artifactUUID)
+	}
+
+	uriRequestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+	uriRequestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+	uriRequestRecord.UUID = artifactUUID
+	uriRequestRecord.URI = uri
+	err := sendPostRequest(_ARTIFACTS_URI_API, uriRequestRecord, replyRecord)
+	if err != nil {
+		errorString += fmt.Sprintf("problem with adding uri %s to artifact %s\n", uri.Location, artifactUUID)
+	}
+
+	if errorString == _ARTIFACT_SUCCESS {
+		return true, nil
+	} else {
+		return false, fmt.Errorf("%s", errorString)
+	}
+}
+
 // pushArtifactToLedger adds an artifact to the ledger.
 // Return is true if successful, false otherwise.
 // error will indicate the error encountered. It does not display
@@ -89,17 +116,16 @@ func pushArtifactToLedger(artifact ArtifactRecord) (bool, error) {
 	const _ARTIFACT_SUCCESS = "Artifact added successfully\n"
 	var errorString = _ARTIFACT_SUCCESS
 	var uriRequestRecord URIAddRecord
+	uriRequestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
+	uriRequestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
+	uriRequestRecord.UUID = artifact.UUID
 	for _, uri := range artifact.URIList {
-		uriRequestRecord.PrivateKey = getLocalConfigValue(_PRIVATE_KEY)
-		uriRequestRecord.PublicKey = getLocalConfigValue(_PUBLIC_KEY)
-		uriRequestRecord.UUID = artifact.UUID
 		uriRequestRecord.URI = uri
-		err := sendPostRequest(_ARTIFACTS_URI_API, requestRecord, replyRecord)
+		err := sendPostRequest(_ARTIFACTS_URI_API, uriRequestRecord, replyRecord)
 		if err != nil {
 			errorString += fmt.Sprintf("problem with adding uri %s to artifact\n", uri.Location)
 		}
 	}
-
 	if errorString == _ARTIFACT_SUCCESS {
 		return true, nil
 	} else {
