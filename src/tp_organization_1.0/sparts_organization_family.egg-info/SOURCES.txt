@@ -1,6 +1,7 @@
 setup.py
 sparts_organization/__init__.py
 sparts_organization/exceptions.py
+sparts_organization/organization-api.py
 sparts_organization/organization_batch.py
 sparts_organization/organization_cli.py
 sparts_organization/processor/__init__.py
