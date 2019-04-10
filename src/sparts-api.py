@@ -18,14 +18,13 @@ import os
 import subprocess, shlex, re
 from flask import Flask, jsonify, make_response, request, json
 import requests
-# import sawtooth_signing.secp256k1_signer as signing
-#
+
 from sawtooth_signing import create_context
 from sawtooth_signing import CryptoFactory
 from sawtooth_signing import ParseError
 from sawtooth_signing.secp256k1 import Secp256k1PublicKey
 from sawtooth_signing.secp256k1 import Secp256k1PrivateKey
-#
+
 import base64
 
 import uuid
@@ -35,7 +34,7 @@ app = Flask(__name__)
 @app.route("/ledger/api/v1/ping", methods=["GET"])
 def get_ping_result():
     
-    output = ret_msg("success","OK","EmptyRecord","{}")
+    output = ret_msg("success", "OK", "EmptyRecord", "{}")
     return output    
 ################################################################################
 #                                  ARTIFACT                                    #
@@ -47,12 +46,6 @@ def create_artifact_cmd(artifact_id, alias, filename, content_type, checksum,
                 str_qt(content_type), str_qt(checksum), str_qt(label),
                 str_qt(openchain), str_qt(private_key), str_qt(public_key)
             )
-    # return "artifact create {} {} {} {} {} {} {} {} {}".format(
-    #             artifact_id, alias, filename, content_type, checksum, label,
-    #             openchain, private_key, public_key
-    #         )
-    # cmd = "artifact create " + str_qt(artifact_id) + " " + str_qt(alias) + " " + str_qt(filename)+ " " + str_qt(content_type) + " " + str_qt(checksum) + " " + str_qt(label) + " " + str_qt(openchain) + " "+ str_qt(private_key) + " "+ str_qt(public_key)
-    # return cmd
 
 @app.route("/ledger/api/v1/artifacts", methods=["POST"])
 def create_artifact():
@@ -95,12 +88,6 @@ def amend_artifact_cmd(artifact_id, alias, filename, content_type, checksum,
                 str_qt(content_type), str_qt(checksum), str_qt(label),
                 str_qt(openchain), str_qt(private_key), str_qt(public_key)
             )
-    # return "artifact amend {} {} {} {} {} {} {} {} {}".format(
-    #             artifact_id, alias, filename, content_type, checksum, label,
-    #             openchain, private_key, public_key
-    #         )
-    # cmd = "artifact amend " + str_qt(artifact_id) + " " + str_qt(alias) + " " + str_qt(filename)+ " " + str_qt(content_type) + " " + str_qt(checksum) + " " + str_qt(label) + " " + str_qt(openchain) + " "+ str_qt(private_key) + " "+ str_qt(public_key)
-    # return cmd
 
 @app.route("/ledger/api/v1/artifacts/amend", methods=["POST"])
 def amend_artifact():
@@ -171,11 +158,6 @@ def add_artifact_to_envelope_cmd(envelope_uuid, artifact_uuid, private_key,
                 str_qt(envelope_uuid), str_qt(artifact_uuid), str_qt(path),
                 str_qt(private_key), str_qt(public_key)
             )
-    # return "artifact AddArtifact {} {} {} {} {}".format(
-    #             envelope_uuid, artifact_uuid, path, private_key, public_key
-    #         )
-    # cmd = "artifact AddArtifact " + str_qt(envelope_uuid) + " " + str_qt(artifact_uuid) + " " + str_qt(path) + " " + str_qt(private_key) + " " + str_qt(public_key)
-    # return cmd
 
 @app.route("/ledger/api/v1/envelope/artifact", methods=["POST"])
 def add_artifact_to_envelope():
@@ -214,12 +196,6 @@ def add_uri_cmd(artifact_id, version, checksum, content_type, size, uri_type,
                 str_qt(content_type), size, str_qt(uri_type), str_qt(location),
                 str_qt(private_key), str_qt(public_key)
             )
-    # return "artifact AddURI {} {} {} {} {} {} {} {} {}".format(
-    #             artifact_id, version, checksum, content_type, size, uri_type,
-    #             location, private_key, public_key
-    #         )
-    # cmd = "artifact AddURI " + str_qt(artifact_id) + " " + str_qt(version) + " " + str_qt(checksum) + " " + str_qt(content_type) + " " + size +  " " +str_qt(uri_type)+" "+ str_qt(location) + " " + str_qt(private_key) + " "+ str_qt(public_key)
-    # return cmd
 
 # Create record for the artifact  
 @app.route("/ledger/api/v1/artifacts/uri", methods=["POST"])
@@ -278,7 +254,6 @@ def register_user():
         public_key = request.json["public_key"]
         private_key = request.json["private_key"]
         
-        # cmd = "user register " + user_public_key + " " + str(name) + " " + str(email_address) + " " + authorized +" " + role+ " " + private_key + " "+ public_key
         cmd = "user register {} {} {} {} {} {} {}".format(
                     user_public_key, str(name), str(email_address), authorized,
                     role, private_key, public_key
@@ -564,7 +539,10 @@ def get_uuid_organization_history(org_id):
         return exp
 
 # Retrieves historical organization record on certain date by organization id
-@app.route("/ledger/api/v1/orgs/<string:org_id>/date/<string:START>", methods=["GET"])
+@app.route(
+    "/ledger/api/v1/orgs/<string:org_id>/date/<string:START>",
+    methods=["GET"]
+)
 def get_uuid_organization_day(org_id, START):
     try:
         cmd = "organization retrieve --range {} {} {}".format(
@@ -797,8 +775,8 @@ def add_organization_to_part():
         organization_uuid = request.json["relation"]["organization_uuid"]
         public_key = request.json["public_key"]
         private_key = request.json["private_key"]
-        # cmd = "pt AddSupplier " + uuid + " " + organization_uuid + " "+ private_key + " "+ public_key
-        cmd = "pt AddSupplier {} {} {} {}".format(
+        
+        cmd = "pt AddOrganization {} {} {} {}".format(
                     uuid, organization_uuid, private_key, public_key
                 )
         cmd = shlex.split(cmd)
@@ -1078,28 +1056,91 @@ def nullCast(dic, key):
 ################################################################################
 #                            API to API ARTIFACT                               #
 ################################################################################
+# API : ARTIFACT CREATE 
+@app.route("/phyo/api/create/artifact", methods=["POST"])
+def api_create_artifact():
+    headers = {"content-type": "application/json"}
+    response = requests.post("http://127.0.0.1:853/tp/artifact", 
+                    data=json.dumps(request.json), headers=headers)
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+
+# API : ARTIFACT AMEND
+@app.route("/phyo/api/amend/artifact", methods=["POST"])
+def api_amend_artifact():
+    headers = {"content-type": "application/json"}
+    response = requests.post("http://127.0.0.1:853/tp/artifact/amend", 
+                    data=json.dumps(request.json), headers=headers)
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+
+# API : ARTIFACT LIST ARTIFACT
+@app.route("/phyo/api/list/artifact", methods=["GET"])
+def api_list_artifact():
+    response = requests.get("http://127.0.0.1:853/tp/artifact")
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+
+# API : ARTIFACT RETRIEVE {UUID}
+@app.route("/phyo/api/retrieve/artifact/<string:art_id>", methods=["GET"])
+def api_retrieve_artifact(art_id):
+    response = requests.get(
+                    "http://127.0.0.1:853/tp/artifact/{}".format(art_id)
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+    
+# API : ARTIFACT RETRIEVE --ALL {UUID}
+@app.route(
+    "/phyo/api/retrieve/artifact/history/<string:art_id>",
+    methods=["GET"]
+)
+def api_retrieve_artifact_history(art_id):
+    response = requests.get(
+                    "http://127.0.0.1:853/tp/artifact/history/{}" \
+                    .format(art_id)
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+
+# API : ARTIFACT RETRIEVE --RANGE START END {UUID}
+@app.route(
+    "/phyo/api/retrieve/artifact/<string:art_id>/date/<string:START>",
+    methods=["GET"]
+)
+def api_artifact_history_date(art_id, START):
+    response = requests.get(
+                    "http://127.0.0.1:853/tp/artifact/{}/date/{}" \
+                    .format(art_id, START)
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
 ################################################################################
 #                            API to API CATEGORY                               #
 ################################################################################
 # API : CATEGORY CREATE 
 @app.route("/phyo/api/create/category", methods=["POST"])
 def api_create_category():
-    
-    headers = {"content-type": "application/json"}
+    headers = {"content-type" : "application/json"}
     response = requests.post("http://127.0.0.1:850/tp/category", 
                     data=json.dumps(request.json), headers=headers)
-    output = response.content.decode("utf-8")
+    output = response.content.decode("utf-8").strip()
     
     return output
 
 # API : CATEGORY AMEND
 @app.route("/phyo/api/amend/category", methods=["POST"])
 def api_amend_category():
-    
-    headers = {"content-type": "application/json"}
+    headers = {"content-type" : "application/json"}
     response = requests.post("http://127.0.0.1:850/tp/category/amend", 
                     data=json.dumps(request.json), headers=headers)
-    output = response.content.decode("utf-8")
+    output = response.content.decode("utf-8").strip()
     
     return output
 
@@ -1154,22 +1195,20 @@ def api_category_history_date(category_id, START):
 # API : ORGANIZATION CREATE 
 @app.route("/phyo/api/create/organization", methods=["POST"])
 def api_create_organization():
-    
-    headers = {"content-type": "application/json"}
+    headers = {"content-type" : "application/json"}
     response = requests.post("http://127.0.0.1:851/tp/organization", 
                     data=json.dumps(request.json), headers=headers)
-    output = response.content.decode("utf-8")
+    output = response.content.decode("utf-8").strip()
     
     return output
 
 # API : ORGANIZATION AMEND
 @app.route("/phyo/api/amend/organization", methods=["POST"])
 def api_amend_organization():
-    
-    headers = {"content-type": "application/json"}
+    headers = {"content-type" : "application/json"}
     response = requests.post("http://127.0.0.1:851/tp/organization/amend", 
                     data=json.dumps(request.json), headers=headers)
-    output = response.content.decode("utf-8")
+    output = response.content.decode("utf-8").strip()
     
     return output
 
@@ -1222,9 +1261,145 @@ def api_organization_history_date(org_id, START):
 ################################################################################
 #                              API to API PART                                 #
 ################################################################################
+# API : PART CREATE 
+@app.route("/phyo/api/create/part", methods=["POST"])
+def api_create_part():
+    headers = {"content-type": "application/json"}
+    response = requests.post("http://127.0.0.1:852/tp/part", 
+                    data=json.dumps(request.json), headers=headers)
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+
+# API : PART AMEND
+@app.route("/phyo/api/amend/part", methods=["POST"])
+def api_amend_part():
+    headers = {"content-type" : "application/json"}
+    response = requests.post("http://127.0.0.1:852/tp/part/amend", 
+                    data=json.dumps(request.json), headers=headers)
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+
+# API : PART LIST PART
+@app.route("/phyo/api/list/part", methods=["GET"])
+def api_list_part():
+    response = requests.get("http://127.0.0.1:852/tp/part")
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+
+# API : PART RETRIEVE {UUID}
+@app.route("/phyo/api/retrieve/part/<string:pt_id>", methods=["GET"])
+def api_retrieve_part(pt_id):
+    response = requests.get(
+                    "http://127.0.0.1:852/tp/part/{}".format(pt_id)
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+    
+# API : PART RETRIEVE --ALL {UUID}
+@app.route(
+    "/phyo/api/retrieve/part/history/<string:pt_id>",
+    methods=["GET"]
+)
+def api_retrieve_part_history(pt_id):
+    response = requests.get(
+                    "http://127.0.0.1:852/tp/part/history/{}" \
+                    .format(pt_id)
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+
+# API : PART RETRIEVE --RANGE START END {UUID}
+@app.route(
+    "/phyo/api/retrieve/part/<string:pt_id>/date/<string:START>",
+    methods=["GET"]
+)
+def api_part_history_date(pt_id, START):
+    response = requests.get(
+                    "http://127.0.0.1:852/tp/part/{}/date/{}" \
+                    .format(pt_id, START)
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
 ################################################################################
 #                            API to API RELATION                               #
 ################################################################################
+@app.route(
+    "/phyo/api/relate/part/org",
+    methods=["POST"]
+)
+def api_relation_part_org():
+    headers = {"content-type": "application/json"}
+
+    response = requests.post("http://127.0.0.1:852/tp/part/addorganization", 
+                    data=json.dumps(request.json), headers=headers)
+    output = response.content.decode("utf-8").strip()
+    output = json.loads(output)
+    
+    if "status" not in output:
+        return ret_msg(
+            "failed", "Status field not found", "RelationRecord", "{}"
+        )
+    elif output["status"] != "success":
+        return json.dumps(output)
+        
+    response = requests.post("http://127.0.0.1:851/tp/organization/addpart", 
+                    data=json.dumps(request.json), headers=headers)
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+    
+@app.route(
+    "/phyo/api/relate/part/org/delete",
+    methods=["POST"]
+)
+def api_relation_part_org_delete():
+    headers = {"content-type": "application/json"}
+
+    response = requests.post(
+                    "http://127.0.0.1:852/tp/part/addorganization/delete", 
+                    data=json.dumps(request.json), headers=headers
+                )
+    output = response.content.decode("utf-8").strip()
+    output = json.loads(output)
+    
+    if "status" not in output:
+        return ret_msg(
+            "failed", "Status field not found", "RelationRecord", "{}"
+        )
+    elif output["status"] != "success":
+        return json.dumps(output)
+        
+    response = requests.post(
+                    "http://127.0.0.1:851/tp/organization/addpart/delete", 
+                    data=json.dumps(request.json), headers=headers
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+################################################################################
+#                                   TEST                                       #
+################################################################################
+@app.route("/proto/api/test", methods=["POST"])
+def api_test_post():
+    headers = {"content-type" : "application/json"}
+    response = requests.post("http://127.0.0.1:852/tp/part/", 
+                    data=json.dumps(request.json), headers=headers)
+    output = response.content.decode("utf-8")
+    return output
+
+@app.route("/proto/api/test", methods=["GET"])
+def api_test_get():
+    response = requests.get("http://127.0.0.1:852/tp/part")
+    output = response.content.decode("utf-8").strip()
+    output = json.loads(output)
+    
+    return json.dumps(output)
 ################################################################################
 #                                   MAIN                                       #
 ################################################################################
