@@ -1,6 +1,7 @@
 setup.py
 sawtooth_part/__init__.py
 sawtooth_part/exceptions.py
+sawtooth_part/part-api.py
 sawtooth_part/part_batch.py
 sawtooth_part/part_cli.py
 sawtooth_part.egg-info/PKG-INFO
