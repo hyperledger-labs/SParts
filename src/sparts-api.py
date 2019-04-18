@@ -11,7 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ------------------------------------------------------------------------------
-
+################################################################################
+#                               LIBS & DEPS                                    #
+################################################################################
 #!flask/bin/python
 import os
 import subprocess, shlex, re
@@ -28,6 +30,9 @@ import base64
 
 import uuid
 from random import randint
+################################################################################
+#                                FLASK APP                                     #
+################################################################################
 app = Flask(__name__)
 
 @app.route("/ledger/api/v1/ping", methods=["GET"])
@@ -151,15 +156,15 @@ def get_artifact(artifact_id):
         exp = ret_exception_msg(e)
         return exp
 
-def add_artifact_to_envelope_cmd(envelope_uuid, artifact_uuid, private_key,
+def add_artifact_to_artifact_cmd(artifact_uuid, sub_artifact_uuid, private_key,
                                     public_key, path):
     return "artifact AddArtifact {} {} {} {} {}".format(
-                str_qt(envelope_uuid), str_qt(artifact_uuid), str_qt(path),
+                str_qt(artifact_uuid), str_qt(sub_artifact_uuid), str_qt(path),
                 str_qt(private_key), str_qt(public_key)
             )
 
-@app.route("/ledger/api/v1/envelope/artifact", methods=["POST"])
-def add_artifact_to_envelope():
+@app.route("/ledger/api/v1/artifact/artifact", methods=["POST"])
+def add_artifact_to_artifact():
     try:
         if (not request.json or
             "private_key" not in request.json or
@@ -172,10 +177,10 @@ def add_artifact_to_envelope():
         private_key = request.json["private_key"]
          
         artifact_uuid = request.json["relation"]["artifact_uuid"]
-        envelope_uuid = request.json["relation"]["envelope_uuid"]
+        sub_artifact_uuid = request.json["relation"]["sub_artifact_uuid"]
         path = request.json["relation"]["path"]
         
-        cmd = add_artifact_to_envelope_cmd(envelope_uuid, artifact_uuid,
+        cmd = add_artifact_to_artifact_cmd(artifact_uuid, sub_artifact_uuid,
                                             private_key, public_key, path)
         cmd = shlex.split(cmd)
         
@@ -728,7 +733,7 @@ def get_uuid_part_day(part_id, START):
         exp = ret_exception_msg(e)
         return exp
 
-# Establishes relationship between envelopes and part
+# Establishes relationship between artifacts and part
 @app.route("/ledger/api/v1/artifacts/part", methods=["POST"])
 def add_artifact_to_part():
     try:
@@ -740,13 +745,12 @@ def add_artifact_to_part():
         output = ""
         
         uuid = request.json["relation"]["part_uuid"]
-        envelope_uuid = request.json["relation"]["artifact_uuid"]
+        artifact_uuid = request.json["relation"]["artifact_uuid"]
         public_key = request.json["public_key"]
         private_key = request.json["private_key"]
         
-        # cmd = "pt AddArtifact " + uuid + sp + envelope_uuid + sp + private_key + sp + public_key
         cmd = "pt AddArtifact {} {} {} {}".format(
-                    uuid, envelope_uuid, private_key, public_key
+                    uuid, artifact_uuid, private_key, public_key
                 )
         cmd = shlex.split(cmd)
         
@@ -808,7 +812,6 @@ def add_category_to_part():
         public_key = request.json["public_key"]
         private_key = request.json["private_key"]
         
-        # cmd = "pt AddCategory " + uuid + " " + category_uuid + " " + private_key + " "+ public_key
         cmd = "pt AddCategory {} {} {} {}".format(
                     uuid, category_uuid, private_key, public_key
                 )
@@ -824,53 +827,53 @@ def add_category_to_part():
         exp = ret_exception_msg(e) 
         return exp
 
-@app.route(
-    "/api/sparts/ledger/envelopes/searchbychecksum/<string:checksum_id>",
-    methods=["GET"]
-)
-def artifact_verify_checksum(checksum_id):
-    try:
-        artifactlist = get_envelopes()
-        jdata = json.loads(artifactlist)
+# @app.route(
+#     "/api/sparts/ledger/envelopes/searchbychecksum/<string:checksum_id>",
+#     methods=["GET"]
+# )
+# def artifact_verify_checksum(checksum_id):
+#     try:
+#         artifactlist = get_envelopes()
+#         jdata = json.loads(artifactlist)
     
-        output = ""
-        for i in jdata:
-            if i["checksum"] == checksum_id:
-                output = json.dumps(i) 
-        return output
-    except Exception as e:
-        exp = ret_exception_msg(e)
-        return exp
+#         output = ""
+#         for i in jdata:
+#             if i["checksum"] == checksum_id:
+#                 output = json.dumps(i) 
+#         return output
+#     except Exception as e:
+#         exp = ret_exception_msg(e)
+#         return exp
 
-@app.route(
-    "/api/sparts/ledger/parts/artifact/<string:part_id>",
-    methods=["GET"]
-)
-def get_part_artifact(part_id):
-    try:
-        cmd = "pt retrieve " + part_id
-        process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
-        process.wait()
-        partsOut = ""
-        output = ""
-        for line in process.stdout:
-            partsOut += line.decode("utf-8").strip()
-            partsOut = refine_output(partsOut)
+# @app.route(
+#     "/api/sparts/ledger/parts/artifact/<string:part_id>",
+#     methods=["GET"]
+# )
+# def get_part_artifact(part_id):
+#     try:
+#         cmd = "pt retrieve " + part_id
+#         process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+#         process.wait()
+#         partsOut = ""
+#         output = ""
+#         for line in process.stdout:
+#             partsOut += line.decode("utf-8").strip()
+#             partsOut = refine_output(partsOut)
     
-        artifactListJSON = "[]"
-        jArtifactsData = json.loads(artifactListJSON)
-        data = json.loads(partsOut)
-        for element in data["envelopes"]:
-            artifactD = get_envelope(element["envelope_id"])
-            artJSONObj = json.loads(artifactD)
-            del artJSONObj["sub_artifact"]
-            jArtifactsData.append(artJSONObj)
+#         artifactListJSON = "[]"
+#         jArtifactsData = json.loads(artifactListJSON)
+#         data = json.loads(partsOut)
+#         for element in data["envelopes"]:
+#             artifactD = get_envelope(element["envelope_id"])
+#             artJSONObj = json.loads(artifactD)
+#             del artJSONObj["sub_artifact"]
+#             jArtifactsData.append(artJSONObj)
                 
-        output = json.dumps(jArtifactsData)
-        return output
-    except Exception as e:
-        exp = ret_exception_msg(e)
-        return exp
+#         output = json.dumps(jArtifactsData)
+#         return output
+#     except Exception as e:
+#         exp = ret_exception_msg(e)
+#         return exp
 ################################################################################
 #                             SAWTOOTH VERSION                                 #
 ################################################################################
@@ -1328,6 +1331,7 @@ def api_part_history_date(pt_id, START):
 ################################################################################
 #                            API to API RELATION                               #
 ################################################################################
+# API : RELATE PART TO ORGANIZATION AND ORGANIZATION TO PART
 @app.route(
     "/phyo/api/relate/part/org",
     methods=["POST"]
@@ -1352,7 +1356,8 @@ def api_relation_part_org():
     output = response.content.decode("utf-8").strip()
     
     return output
-    
+
+# API : SEVER PART TO ORGANIZATION AND ORGANIZATION TO PART
 @app.route(
     "/phyo/api/relate/part/org/delete",
     methods=["POST"]
@@ -1381,24 +1386,118 @@ def api_relation_part_org_delete():
     output = response.content.decode("utf-8").strip()
     
     return output
-################################################################################
-#                                   TEST                                       #
-################################################################################
-@app.route("/proto/api/test", methods=["POST"])
-def api_test_post():
-    headers = {"content-type" : "application/json"}
-    response = requests.post("http://127.0.0.1:852/tp/part/", 
+
+# API : RELATE PART TO CATEGORY
+@app.route(
+    "/phyo/api/relate/part/cat",
+    methods=["POST"]
+)
+def api_relation_part_cat():
+    headers = {"content-type": "application/json"}
+    response = requests.post("http://127.0.0.1:852/tp/part/addcategory", 
                     data=json.dumps(request.json), headers=headers)
-    output = response.content.decode("utf-8")
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+    
+# API : SEVER PART TO CATEGORY
+@app.route(
+    "/phyo/api/relate/part/cat/delete",
+    methods=["POST"]
+)
+def api_relation_part_cat_delete():
+    headers = {"content-type": "application/json"}
+    response = requests.post("http://127.0.0.1:852/tp/part/addcategory/delete", 
+                    data=json.dumps(request.json), headers=headers)
+    output = response.content.decode("utf-8").strip()
+    
     return output
 
-@app.route("/proto/api/test", methods=["GET"])
-def api_test_get():
-    response = requests.get("http://127.0.0.1:852/tp/part")
+# API : RELATE PART TO ARTIFACT    
+@app.route(
+    "/phyo/api/relate/part/art",
+    methods=["POST"]
+)
+def api_relation_part_art():
+    headers = {"content-type": "application/json"}
+    response = requests.post("http://127.0.0.1:852/tp/part/addartifact", 
+                    data=json.dumps(request.json), headers=headers)
     output = response.content.decode("utf-8").strip()
-    output = json.loads(output)
     
-    return json.dumps(output)
+    return output
+    
+# API : SEVER PART TO ARTIFACT
+@app.route(
+    "/phyo/api/relate/part/art/delete",
+    methods=["POST"]
+)
+def api_relation_part_art_delete():
+    headers = {"content-type": "application/json"}
+    response = requests.post("http://127.0.0.1:852/tp/part/addartifact/delete", 
+                    data=json.dumps(request.json), headers=headers)
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+    
+# API : RELATE ARTIFACT TO ARTIFACT    
+@app.route(
+    "/phyo/api/relate/art/art",
+    methods=["POST"]
+)
+def api_relation_art_art():
+    headers = {"content-type": "application/json"}
+    response = requests.post(
+                    "http://127.0.0.1:853/tp/artifact/addartifact", 
+                    data=json.dumps(request.json), headers=headers
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+    
+# API : SEVER ARTIFACT TO ARTIFACT    
+@app.route(
+    "/phyo/api/relate/art/art/delete",
+    methods=["POST"]
+)
+def api_relation_art_art_delete():
+    headers = {"content-type": "application/json"}
+    response = requests.post(
+                    "http://127.0.0.1:853/tp/artifact/addartifact/delete", 
+                    data=json.dumps(request.json), headers=headers
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+    
+# API : RELATE ARTIFACT TO URI    
+@app.route(
+    "/phyo/api/relate/art/uri",
+    methods=["POST"]
+)
+def api_relation_art_uri():
+    headers = {"content-type": "application/json"}
+    response = requests.post(
+                    "http://127.0.0.1:853/tp/artifact/adduri", 
+                    data=json.dumps(request.json), headers=headers
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
+    
+# API : SEVER ARTIFACT TO URI    
+@app.route(
+    "/phyo/api/relate/art/uri/delete",
+    methods=["POST"]
+)
+def api_relation_art_uri_delete():
+    headers = {"content-type": "application/json"}
+    response = requests.post(
+                    "http://127.0.0.1:853/tp/artifact/adduri/delete", 
+                    data=json.dumps(request.json), headers=headers
+                )
+    output = response.content.decode("utf-8").strip()
+    
+    return output
 ################################################################################
 #                                   MAIN                                       #
 ################################################################################
