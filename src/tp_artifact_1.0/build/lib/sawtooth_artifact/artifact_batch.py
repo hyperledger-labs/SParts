@@ -12,24 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ------------------------------------------------------------------------------
-
+################################################################################
+#                               LIBS & DEPS                                    #
+################################################################################
 import hashlib
 import base64
 from base64 import b64encode
 import time
 import requests
 import yaml
+import datetime
 import json
 
-# import sawtooth_signing.secp256k1_signer as signing
-
-#
 from sawtooth_signing import create_context
 from sawtooth_signing import CryptoFactory
 from sawtooth_signing import ParseError
 from sawtooth_signing.secp256k1 import Secp256k1PrivateKey
-#
-from datetime import datetime
 
 from sawtooth_sdk.protobuf.transaction_pb2 import TransactionHeader
 from sawtooth_sdk.protobuf.transaction_pb2 import Transaction
@@ -37,20 +35,79 @@ from sawtooth_sdk.protobuf.batch_pb2 import BatchList
 from sawtooth_sdk.protobuf.batch_pb2 import BatchHeader
 from sawtooth_sdk.protobuf.batch_pb2 import Batch
 from sawtooth_artifact.exceptions import ArtifactException
-
-
+################################################################################
+#                            GLOBAL FUNCTIONS                                  #
+################################################################################
 def _sha512(data):
     return hashlib.sha512(data).hexdigest()
-
-
+################################################################################
+#                                  CLASS                                       #
+################################################################################
 class ArtifactBatch:
+    
     def __init__(self, base_url):
         self._base_url = base_url
-
-    def create(self,private_key,public_key,artifact_id,alias,artifact_name,artifact_type,artifact_checksum,label,openchain,timestamp):
+################################################################################
+#                            PUBLIC FUNCTIONS                                  #
+################################################################################
+    def create_artifact(self, private_key, public_key, artifact_id,
+            artifact_alias, artifact_name, artifact_type, artifact_checksum,
+            artifact_label, artifact_openchain):
+        address = self._get_address(artifact_id)
+    
+        response_bytes = self._send_request("state/{}".format(address),
+                        artifact_id=artifact_id, creation=True
+                    )
         
-        return self.artifact_transaction(private_key,public_key,artifact_id,alias,artifact_name,artifact_type,artifact_checksum,label,openchain,timestamp,"create","","","","","","","","")
-
+        if response_bytes != None:
+            return None
+        
+        cur = self._get_block_num() 
+        return self.artifact_transaction(private_key, public_key, artifact_id, 
+                    artifact_alias, artifact_name, artifact_type, 
+                    artifact_checksum, artifact_label, artifact_openchain, 
+                    "0", cur, str(datetime.datetime.utcnow()), "create", "", "")
+    
+    def amend_artifact(self, private_key, public_key, artifact_id,
+            artifact_alias, artifact_name, artifact_type, artifact_checksum,
+            artifact_label, artifact_openchain):
+        response_bytes = self.retrieve_artifact(artifact_id)
+        
+        if response_bytes != None:
+            
+            jresponse = json.loads(response_bytes.decode())
+            
+            if artifact_alias == "null":
+                artifact_alias = jresponse["alias"]
+            if artifact_name == "null":
+                artifact_name = jresponse["name"]
+            if artifact_type == "null":
+                artifact_type = jresponse["content_type"]
+            if artifact_checksum == "null":
+                artifact_checksum = jresponse["checksum"]
+            if artifact_label == "null":
+                artifact_label = jresponse["label"]
+            if artifact_openchain == "null":
+                artifact_openchain = jresponse["openchain"]
+            
+            if (jresponse["alias"] == artifact_alias and
+                jresponse["name"] == artifact_name and
+                jresponse["content_type"] == artifact_type and
+                jresponse["checksum"] == artifact_checksum and
+                jresponse["label"] == artifact_label and
+                jresponse["openchain"] == artifact_openchain) :
+                return [None]
+            else:
+                cur = self._get_block_num()
+                return self.artifact_transaction(private_key, public_key,
+                            artifact_id, artifact_alias, artifact_name,
+                            artifact_type, artifact_checksum, artifact_label,
+                            artifact_openchain, jresponse["cur_block"], cur, 
+                            str(datetime.datetime.utcnow()), "amend", 
+                            jresponse["artifact_list"], jresponse["uri_list"])
+                            
+        return None
+        
     def list_artifact(self):
         artifact_prefix = self._get_prefix()
 
@@ -62,51 +119,292 @@ class ArtifactBatch:
             encoded_entries = yaml.safe_load(result)["data"]
 
             return [
-                base64.b64decode(entry["data"]) for entry in encoded_entries
+                json.loads(base64.b64decode(entry["data"]).decode()) for entry \
+                    in encoded_entries
             ]
 
         except BaseException:
             return None
     
-    def add_uri(self,private_key,public_key,artifact_id,version,checksum,content_type,size,uri_type,location):    
-        return self.artifact_transaction(private_key,public_key,artifact_id,"","","","","","","","AddURI","",version,checksum,content_type,size,uri_type,location,"")
+    def retrieve_artifact(self, artifact_id, all_flag=False, range_flag=None):
+        if all_flag:
+            
+            retVal = []
+            
+            response = self.retrieve_artifact(artifact_id).decode()
+            response = json.loads(response)
+            
+            if range_flag != None:
+                curTime = int(response["timestamp"].split()[0].replace("-", ""))
+                if (curTime <= int(range_flag[1]) and 
+                        curTime >= int(range_flag[0])):
+                    retVal.append(response)
+            else:
+                retVal.append(response)
+                
+            while str(response["prev_block"]) != "0":
+                
+                response = json.loads(self._get_payload_(
+                                int(response["prev_block"])).decode())
+                
+                timestamp       = response["timestamp"] 
+                
+                del response["action"]
+                
+                if range_flag != None:
+                    curTime = int(timestamp.split()[0].replace("-", ""))
+                    if curTime < int(range_flag[0]):
+                        break
+                    elif curTime <= int(range_flag[1]):
+                        retVal.append(response)
+                else:
+                    retVal.append(response)
+            
+            return retVal
+        else:
+            address = self._get_address(artifact_id)
     
+            result = self._send_request("state/{}".format(address), 
+                        artifact_id=artifact_id)
+            try:
+                return base64.b64decode(yaml.safe_load(result)["data"])
     
-    def add_artifact(self,private_key,public_key,artifact_id,sub_artifact_id,path):
-        return self.artifact_transaction(private_key,public_key,artifact_id,"","","","","","","","AddArtifact",sub_artifact_id,"","","","","","",path) 
-
-    def retrieve_artifact(self, artifact_id):
-        address = self._get_address(artifact_id)
-
-        result = self._send_request("state/{}".format(address), artifact_id=artifact_id)
-        try:
-            return base64.b64decode(yaml.safe_load(result)["data"])
-
-        except BaseException:
+            except BaseException:
+                return None
+    
+    def add_artifact(self, private_key, public_key, artifact_id, 
+                sub_artifact_id, path, del_flag=False):
+        if del_flag:
+            response_bytes = self.retrieve_artifact(artifact_id)
+            
+            if response_bytes != None:
+                
+                jresponse = json.loads(response_bytes.decode())
+                
+                if len(jresponse["artifact_list"]) == 0:
+                    return  [
+                                None,
+                                "No {} to remove from this {}." \
+                                    .format("Sub-Artifact", "Artifact")
+                            ]
+                        
+                art_dict = {
+                    "uuid" : sub_artifact_id,
+                    "path" : path
+                }
+                
+                if art_dict not in jresponse["artifact_list"]:
+                    return  [
+                                None, 
+                                "No such {} in this {}." \
+                                    .format("Sub-Artifact", "Artifact")
+                            ]
+                        
+                jresponse["artifact_list"].remove(art_dict)
+                
+                cur = self._get_block_num()
+                return self.artifact_transaction(private_key, public_key,
+                            artifact_id, jresponse["alias"],
+                            jresponse["name"],
+                            jresponse["content_type"],
+                            jresponse["checksum"],
+                            jresponse["label"],
+                            jresponse["openchain"],
+                            jresponse["cur_block"], cur,
+                            str(datetime.datetime.utcnow()), "AddArtifact", 
+                            jresponse["artifact_list"], jresponse["uri_list"])
+                
             return None
-
-   
+        else:
+            response_bytes = self.retrieve_artifact(artifact_id)
+            
+            if response_bytes != None:
+                
+                if self._validate_sub_artifact_id(sub_artifact_id) == None:
+                    return  [
+                                None,
+                                "ArtifactException : UUID does not exist."
+                            ]
+                
+                
+                jresponse = json.loads(response_bytes.decode())
+                
+                art_dict = {
+                    "uuid" : sub_artifact_id,
+                    "path" : path
+                }
+                
+                if len(jresponse["artifact_list"]) != 0:
+                    
+                    # no dup art_dict allowed in art_list
+                    if art_dict in jresponse["artifact_list"]:
+                        return  [
+                                    None,
+                                    "{} already exists for this {}.".format(
+                                        "Artifact-Dictionary", "Artifact"
+                                    )
+                                ]
+                                    
+                jresponse["artifact_list"].append(art_dict)
+                    
+                cur = self._get_block_num()
+                return self.artifact_transaction(private_key, public_key,
+                            artifact_id, jresponse["alias"],
+                            jresponse["name"],
+                            jresponse["content_type"],
+                            jresponse["checksum"],
+                            jresponse["label"],
+                            jresponse["openchain"],
+                            jresponse["cur_block"], cur,
+                            str(datetime.datetime.utcnow()), "AddArtifact", 
+                            jresponse["artifact_list"], jresponse["uri_list"])
+                
+            return None
+    
+    def add_uri(self, private_key, public_key, artifact_id, version, checksum, 
+                content_type, size, uri_type, location, del_flag=False):
+        if del_flag:
+            response_bytes = self.retrieve_artifact(artifact_id)
+            
+            if response_bytes != None:
+                
+                jresponse = json.loads(response_bytes.decode())
+                
+                if len(jresponse["uri_list"]) == 0:
+                    return  [
+                                None, 
+                                "No {} to remove from this {}." \
+                                    .format("URI", "Artifact")
+                            ]
+                
+                uri_dict = {
+                    "version"       : version,
+                    "checksum"      : checksum,
+                    "content_type"  : content_type,
+                    "size"          : size,
+                    "uri_type"      : uri_type,
+                    "location"      : location
+                }
+                
+                if uri_dict not in jresponse["uri_list"]:
+                    return  [
+                                None,
+                                "No such {} in this {}." \
+                                    .format("URI", "Artifact")
+                            ]
+                        
+                jresponse["uri_list"].remove(uri_dict)
+                
+                cur = self._get_block_num()
+                return self.artifact_transaction(private_key, public_key,
+                            artifact_id, jresponse["alias"],
+                            jresponse["name"],
+                            jresponse["content_type"],
+                            jresponse["checksum"],
+                            jresponse["label"],
+                            jresponse["openchain"],
+                            jresponse["cur_block"], cur,
+                            str(datetime.datetime.utcnow()), "AddURI", 
+                            jresponse["artifact_list"], jresponse["uri_list"])
+                
+            return None
+        else:
+            response_bytes = self.retrieve_artifact(artifact_id)
+            
+            if response_bytes != None:
+                
+                jresponse = json.loads(response_bytes.decode())
+                
+                uri_dict = {
+                    "version"       : version,
+                    "checksum"      : checksum,
+                    "content_type"  : content_type,
+                    "size"          : size,
+                    "uri_type"      : uri_type,
+                    "location"      : location
+                }
+                
+                if len(jresponse["uri_list"]) != 0:
+                    if uri_dict in jresponse["uri_list"]:
+                        return  [
+                                    None, 
+                                    "{} already exists for this {}.".format(
+                                            "URI-Dictionary", "Artifact"
+                                        )
+                                ]
+                                
+                jresponse["uri_list"].append(uri_dict)
+                
+                cur = self._get_block_num()
+                return self.artifact_transaction(private_key, public_key,
+                            artifact_id, jresponse["alias"],
+                            jresponse["name"],
+                            jresponse["content_type"],
+                            jresponse["checksum"],
+                            jresponse["label"],
+                            jresponse["openchain"],
+                            jresponse["cur_block"], cur,
+                            str(datetime.datetime.utcnow()), "AddURI", 
+                            jresponse["artifact_list"], jresponse["uri_list"])
+            
+            return None
+################################################################################
+#                            PRIVATE FUNCTIONS                                 #
+################################################################################   
     def _get_prefix(self):
-        return _sha512('artifact'.encode('utf-8'))[0:6]
+        return _sha512("artifact".encode("utf-8"))[0:6]
 
     def _get_address(self, artifact_id):
         artifact_prefix = self._get_prefix()
-        address = _sha512(artifact_id.encode('utf-8'))[0:64]
+        address = _sha512(artifact_id.encode("utf-8"))[0:64]
         return artifact_prefix + address
-
+    
+    def _get_block_num(self):
+        artifact_prefix = self._get_prefix()
+        
+        result = self._send_request(
+            "blocks?={}".format(artifact_prefix)
+        )
+        
+        if result != None or result != "":
+            result = json.loads(result)
+            return str(len(result["data"]))
+        return None
+    
+    def _get_payload_(self, blocknum):
+        artifact_prefix = self._get_prefix()
+        
+        result = self._send_request(
+            "blocks?={}".format(artifact_prefix)
+        )
+        
+        if result != None or result != "":
+            result = json.loads(result)
+            payload = result["data"][-(blocknum + 1)]["batches"][0]\
+                        ["transactions"][0]["payload"]
+            
+            return base64.b64decode(payload)
+        return None
+    
+    def _validate_sub_artifact_id(self, sub_artifact_id):
+        artifact_prefix = _sha512("artifact".encode("utf-8"))[0:6]
+        address = _sha512(sub_artifact_id.encode("utf-8"))[0:64]
+        address = artifact_prefix + address
+        return self._send_request("state/{}".format(address))
+    
     def _send_request(
-            self, suffix, data=None,
-            content_type=None, artifact_id=None):
+            self, suffix, data=None, content_type=None,
+            artifact_id=None, creation=False):
+                
         if self._base_url.startswith("http://"):
             url = "{}/{}".format(self._base_url, suffix)
         else:
             url = "http://{}/{}".format(self._base_url, suffix)
 
-        headers = {}
-       
+        headers = {} 
 
         if content_type is not None:
-            headers['Content-Type'] = content_type
+            headers["Content-Type"] = content_type
 
         try:
             if data is not None:
@@ -115,74 +413,98 @@ class ArtifactBatch:
                 result = requests.get(url, headers=headers)
 
             if result.status_code == 404:
-                raise ArtifactException("No such artifact as {}".format(artifact_id))
+                if creation:
+                    return None
+                raise ArtifactException(
+                        "No such artifact as {}".format(artifact_id)
+                    )
 
             elif not result.ok:
                 raise ArtifactException("Error {} {}".format(
                     result.status_code, result.reason))
 
         except BaseException as err:
-            raise ArtifactException(err)
+            print(err)
+            return None
             
-
         return result.text
 
-    def artifact_transaction(self,private_key,public_key,artifact_id,alias="",artifact_name="",artifact_type="",artifact_checksum="",label="",openchain="",timestamp="",action="",sub_artifact_id="",version="",checksum="",content_type="",size="",uri_type="",location="",path=""):
+    def artifact_transaction(self, private_key, public_key, artifact_id, 
+                artifact_alias, artifact_name, artifact_type, 
+                artifact_checksum, artifact_label, artifact_openchain, 
+                prev, cur, timestamp, action, artifact_list, uri_list):
         
         self._public_key = public_key
         self._private_key = private_key
         
-        payload = ",".join([artifact_id,str(alias),str(artifact_name),str(artifact_type),str(artifact_checksum),str(label),str(openchain),str(timestamp), action,str(sub_artifact_id),str(version),str(checksum),str(content_type),size,str(uri_type),str(location),str(path)]).encode()
-
+        payload = {
+            "uuid"          : str(artifact_id),
+            "alias"         : str(artifact_alias),
+            "name"          : str(artifact_name),
+            "content_type"  : str(artifact_type),
+            "checksum"      : str(artifact_checksum),
+            "label"         : str(artifact_label),
+            "openchain"     : str(artifact_openchain),
+            "action"        : str(action),
+            "prev_block"    : str(prev),
+            "cur_block"     : str(cur),
+            "timestamp"     : str(timestamp),
+            "artifact_list" : artifact_list,
+            "uri_list"      : uri_list
+        }
+        payload = json.dumps(payload).encode()
+        
         address = self._get_address(artifact_id)
 
         header = TransactionHeader(
-            signer_public_key=self._public_key,
-            family_name="artifact",
-            family_version="1.0",
-            inputs=[address],
-            outputs=[address],
-            dependencies=[],
+            signer_public_key = self._public_key,
+            family_name = "artifact",
+            family_version = "1.0",
+            inputs = [address],
+            outputs = [address],
+            dependencies = [],
             # payload_encoding="csv-utf8",
-            payload_sha512=_sha512(payload),
-            batcher_public_key=self._public_key,
-            nonce=time.time().hex().encode()
+            payload_sha512 = _sha512(payload),
+            batcher_public_key = self._public_key,
+            nonce = time.time().hex().encode()
         ).SerializeToString()
 
         # signature = signing.sign(header, self._private_key)
-        signature = CryptoFactory(create_context('secp256k1')) \
+        signature = CryptoFactory(create_context("secp256k1")) \
             .new_signer(Secp256k1PrivateKey.from_hex(self._private_key)).sign(header)
 
-
         transaction = Transaction(
-            header=header,
-            payload=payload,
-            header_signature=signature
+            header = header,
+            payload = payload,
+            header_signature = signature
         )
 
         batch_list = self._create_batch_list([transaction])
         
         return self._send_request(
             "batches", batch_list.SerializeToString(),
-            'application/octet-stream'
+            "application/octet-stream"
         )
 
     def _create_batch_list(self, transactions):
         transaction_signatures = [t.header_signature for t in transactions]
 
         header = BatchHeader(
-            signer_public_key=self._public_key,
-            transaction_ids=transaction_signatures
+            signer_public_key = self._public_key,
+            transaction_ids = transaction_signatures
         ).SerializeToString()
 
         # signature = signing.sign(header, self._private_key)
-        signature = CryptoFactory(create_context('secp256k1')) \
-            .new_signer(Secp256k1PrivateKey.from_hex(self._private_key)).sign(header)
-
+        signature = CryptoFactory(create_context("secp256k1")) \
+            .new_signer(Secp256k1PrivateKey.from_hex(self._private_key)) \
+            .sign(header)
 
         batch = Batch(
-            header=header,
-            transactions=transactions,
-            header_signature=signature
+            header = header,
+            transactions = transactions,
+            header_signature = signature
         )
         return BatchList(batches=[batch])
+################################################################################
+#                                                                              #
+################################################################################

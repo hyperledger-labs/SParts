@@ -878,15 +878,18 @@ class PartBatch:
             licensing (str): The licensing of the part
             label (str): The label of the part
             description (str): The description of the part
-            artifact_id (list of dict):
+            private_key (str): The private key of the user
+            public_key (str): The public key of the user
+            artifact_id (list of str):
                 The list of the artifact uuid associated with the part
-            category_id (list of dict):
+            category_id (list of str):
                 The list of the category uuid associated with the part
-            organization_id (list dict):
+            organization_id (list str):
                 The list of the organization uuid associated with the part
             prev (str): The previous block id of the transaction (default "0")
             cur (str): the current block id of the transaction
             timestamp (str): The UTC time for when the transaction was submitted
+            action (str): The action performed
             
         Returns:
             type: str
