@@ -19,17 +19,12 @@ import os
 import subprocess, shlex, re
 from flask import Flask, jsonify, make_response, request, json
 import requests
-
 from sawtooth_signing import create_context
 from sawtooth_signing import CryptoFactory
-from sawtooth_signing import ParseError
 from sawtooth_signing.secp256k1 import Secp256k1PublicKey
 from sawtooth_signing.secp256k1 import Secp256k1PrivateKey
-
 import base64
-
 import uuid
-from random import randint
 ################################################################################
 #                                FLASK APP                                     #
 ################################################################################
@@ -37,7 +32,16 @@ app = Flask(__name__)
 
 @app.route("/ledger/api/v1/ping", methods=["GET"])
 def get_ping_result():
+    """
+    Allows the client to "ping" the port localhost:818 to ensure that the port
+    is up and running.
     
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     output = ret_msg("success", "OK", "EmptyRecord", "{}")
     return output    
 ################################################################################
@@ -411,9 +415,6 @@ def get_uuid_category_day(category_id, START):
     except Exception as e:
         exp = ret_exception_msg(e) 
         return exp
-
-# Retrieve most appropriate category record on certain date by category id
-# TODO : --limit needs to be implemented first
 ################################################################################
 #                                 ORGANIZATION                                 #
 ################################################################################
@@ -798,34 +799,34 @@ def add_organization_to_part():
         return exp
 
 # Establishes relationship between category and part
-@app.route("/api/sparts/ledger/parts/AddCategory", methods=["POST"])
-def add_category_to_part():
-    try:
-        if (not request.json or
-            "private_key" not in request.json or
-            "public_key" not in request.json):
-            return "Invalid JSON"
-        output = ""
+# @app.route("/api/sparts/ledger/parts/AddCategory", methods=["POST"])
+# def add_category_to_part():
+#     try:
+#         if (not request.json or
+#             "private_key" not in request.json or
+#             "public_key" not in request.json):
+#             return "Invalid JSON"
+#         output = ""
         
-        uuid = request.json["add_category"]["part_uuid"]
-        category_uuid = request.json["add_category"]["category_uuid"]
-        public_key = request.json["public_key"]
-        private_key = request.json["private_key"]
+#         uuid = request.json["add_category"]["part_uuid"]
+#         category_uuid = request.json["add_category"]["category_uuid"]
+#         public_key = request.json["public_key"]
+#         private_key = request.json["private_key"]
         
-        cmd = "pt AddCategory {} {} {} {}".format(
-                    uuid, category_uuid, private_key, public_key
-                )
-        cmd = shlex.split(cmd)
+#         cmd = "pt AddCategory {} {} {} {}".format(
+#                     uuid, category_uuid, private_key, public_key
+#                 )
+#         cmd = shlex.split(cmd)
         
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        process.wait()
+#         process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+#         process.wait()
         
-        for line in process.stdout:
-                output += line.decode("utf-8").strip()
-        return output
-    except Exception as e:
-        exp = ret_exception_msg(e) 
-        return exp
+#         for line in process.stdout:
+#                 output += line.decode("utf-8").strip()
+#         return output
+#     except Exception as e:
+#         exp = ret_exception_msg(e) 
+#         return exp
 
 # @app.route(
 #     "/api/sparts/ledger/envelopes/searchbychecksum/<string:checksum_id>",
@@ -1059,8 +1060,18 @@ def nullCast(dic, key):
 #                            API to API ARTIFACT                               #
 ################################################################################
 # API : ARTIFACT CREATE 
-@app.route("/phyo/api/create/artifact", methods=["POST"])
+@app.route("/ledger/api/v1.1/artifacts", methods=["POST"])
 def api_create_artifact():
+    """
+    Allows the client to call "create" method on the server side to create the
+    artifact on the legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post("http://127.0.0.1:853/tp/artifact", 
                     data=json.dumps(request.json), headers=headers)
@@ -1069,8 +1080,18 @@ def api_create_artifact():
     return output
 
 # API : ARTIFACT AMEND
-@app.route("/phyo/api/amend/artifact", methods=["POST"])
+@app.route("/ledger/api/v1.1/artifacts/amend", methods=["POST"])
 def api_amend_artifact():
+    """
+    Allows the client to call "amend" method on the server side to amend the
+    artifact on the legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post("http://127.0.0.1:853/tp/artifact/amend", 
                     data=json.dumps(request.json), headers=headers)
@@ -1079,16 +1100,39 @@ def api_amend_artifact():
     return output
 
 # API : ARTIFACT LIST ARTIFACT
-@app.route("/phyo/api/list/artifact", methods=["GET"])
+@app.route("/ledger/api/v1.1/artifacts", methods=["GET"])
 def api_list_artifact():
+    """
+    Allows the client to call "list-artifact" method on the server side to
+    retrieve the list of artifacts from the ledger.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get("http://127.0.0.1:853/tp/artifact")
     output = response.content.decode("utf-8").strip()
     
     return output
 
 # API : ARTIFACT RETRIEVE {UUID}
-@app.route("/phyo/api/retrieve/artifact/<string:art_id>", methods=["GET"])
+@app.route("/ledger/api/v1.1/artifacts/<string:art_id>", methods=["GET"])
 def api_retrieve_artifact(art_id):
+    """
+    Allows the client to call "retrieve" method on the server side to
+    retrieve the artifact from the ledger.
+    
+    Args:
+        art_id (str): The uuid of the artifact
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:853/tp/artifact/{}".format(art_id)
                 )
@@ -1098,10 +1142,23 @@ def api_retrieve_artifact(art_id):
     
 # API : ARTIFACT RETRIEVE --ALL {UUID}
 @app.route(
-    "/phyo/api/retrieve/artifact/history/<string:art_id>",
+    "/ledger/api/v1.1/artifacts/history/<string:art_id>",
     methods=["GET"]
 )
 def api_retrieve_artifact_history(art_id):
+    """
+    Allows the client to call "retrieve --all" method on the server side to
+    retrieve the historical states of artifact from the ledger.
+    
+    Args:
+        art_id (str): The uuid of the artifact
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:853/tp/artifact/history/{}" \
                     .format(art_id)
@@ -1112,10 +1169,24 @@ def api_retrieve_artifact_history(art_id):
 
 # API : ARTIFACT RETRIEVE --RANGE START END {UUID}
 @app.route(
-    "/phyo/api/retrieve/artifact/<string:art_id>/date/<string:START>",
+    "/ledger/api/v1.1/artifacts/<string:art_id>/date/<string:START>",
     methods=["GET"]
 )
 def api_artifact_history_date(art_id, START):
+    """
+    Allows the client to call "retrieve --range" method on the server side to
+    retrieve the states of artifact for the given date from the ledger.
+    
+    Args:
+        art_id (str): The uuid of the artifact
+        START (str): The starting date (format: yyyymmdd)
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:853/tp/artifact/{}/date/{}" \
                     .format(art_id, START)
@@ -1127,8 +1198,18 @@ def api_artifact_history_date(art_id, START):
 #                            API to API CATEGORY                               #
 ################################################################################
 # API : CATEGORY CREATE 
-@app.route("/phyo/api/create/category", methods=["POST"])
+@app.route("/ledger/api/v1.1/categories", methods=["POST"])
 def api_create_category():
+    """
+    Allows the client to call "create" method on the server side to create the
+    category on the legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type" : "application/json"}
     response = requests.post("http://127.0.0.1:850/tp/category", 
                     data=json.dumps(request.json), headers=headers)
@@ -1137,8 +1218,18 @@ def api_create_category():
     return output
 
 # API : CATEGORY AMEND
-@app.route("/phyo/api/amend/category", methods=["POST"])
+@app.route("/ledger/api/v1.1/categories/amend", methods=["POST"])
 def api_amend_category():
+    """
+    Allows the client to call "amend" method on the server side to amend the
+    category on the legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type" : "application/json"}
     response = requests.post("http://127.0.0.1:850/tp/category/amend", 
                     data=json.dumps(request.json), headers=headers)
@@ -1147,16 +1238,39 @@ def api_amend_category():
     return output
 
 # API : CATEGORY LIST CATEGORY
-@app.route("/phyo/api/list/category", methods=["GET"])
+@app.route("/ledger/api/v1.1/categories", methods=["GET"])
 def api_list_category():
+    """
+    Allows the client to call "list-category" method on the server side to
+    retrieve the list of categories from the ledger.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get("http://127.0.0.1:850/tp/category")
     output = response.content.decode("utf-8").strip()
     
     return output
 
 # API : CATEGORY RETRIEVE {UUID}
-@app.route("/phyo/api/retrieve/category/<string:category_id>", methods=["GET"])
+@app.route("/ledger/api/v1.1/categories/<string:category_id>", methods=["GET"])
 def api_retrieve_category(category_id):
+    """
+    Allows the client to call "retrieve" method on the server side to
+    retrieve the category from the ledger.
+    
+    Args:
+        category_id (str): The uuid of the category
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:850/tp/category/{}".format(category_id)
                 )
@@ -1166,10 +1280,23 @@ def api_retrieve_category(category_id):
     
 # API : CATEGORY RETRIEVE --ALL {UUID}
 @app.route(
-    "/phyo/api/retrieve/category/history/<string:category_id>",
+    "/ledger/api/v1.1/categories/history/<string:category_id>",
     methods=["GET"]
 )
 def api_retrieve_category_history(category_id):
+    """
+    Allows the client to call "retrieve --all" method on the server side to
+    retrieve the historical states of category from the ledger.
+    
+    Args:
+        category_id (str): The uuid of the category
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:850/tp/category/history/{}" \
                     .format(category_id)
@@ -1180,10 +1307,24 @@ def api_retrieve_category_history(category_id):
 
 # API : CATEGORY RETRIEVE --RANGE START END {UUID}
 @app.route(
-    "/phyo/api/retrieve/category/<string:category_id>/date/<string:START>",
+    "/ledger/api/v1.1/categories/<string:category_id>/date/<string:START>",
     methods=["GET"]
 )
 def api_category_history_date(category_id, START):
+    """
+    Allows the client to call "retrieve --range" method on the server side to
+    retrieve the states of category for the given date from the ledger.
+    
+    Args:
+        category_id (str): The uuid of the category
+        START (str): The starting date (format: yyyymmdd)
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:850/tp/category/{}/date/{}" \
                     .format(category_id, START)
@@ -1195,8 +1336,18 @@ def api_category_history_date(category_id, START):
 #                          API to API ORGANIZATION                             #
 ################################################################################
 # API : ORGANIZATION CREATE 
-@app.route("/phyo/api/create/organization", methods=["POST"])
+@app.route("/ledger/api/v1.1/orgs", methods=["POST"])
 def api_create_organization():
+    """
+    Allows the client to call "create" method on the server side to create the
+    organization on the legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type" : "application/json"}
     response = requests.post("http://127.0.0.1:851/tp/organization", 
                     data=json.dumps(request.json), headers=headers)
@@ -1205,8 +1356,18 @@ def api_create_organization():
     return output
 
 # API : ORGANIZATION AMEND
-@app.route("/phyo/api/amend/organization", methods=["POST"])
+@app.route("/ledger/api/v1.1/orgs/amend", methods=["POST"])
 def api_amend_organization():
+    """
+    Allows the client to call "amend" method on the server side to amend the
+    organization on the legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type" : "application/json"}
     response = requests.post("http://127.0.0.1:851/tp/organization/amend", 
                     data=json.dumps(request.json), headers=headers)
@@ -1215,16 +1376,39 @@ def api_amend_organization():
     return output
 
 # API : ORGANIZATION LIST ORGANIZATION
-@app.route("/phyo/api/list/organization", methods=["GET"])
+@app.route("/ledger/api/v1.1/orgs", methods=["GET"])
 def api_list_organization():
+    """
+    Allows the client to call "list-organization" method on the server side to
+    retrieve the list of organizations from the ledger.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get("http://127.0.0.1:851/tp/organization")
     output = response.content.decode("utf-8").strip()
     
     return output
 
 # API : ORGANIZATION RETRIEVE {UUID}
-@app.route("/phyo/api/retrieve/organization/<string:org_id>", methods=["GET"])
+@app.route("/ledger/api/v1.1/orgs/<string:org_id>", methods=["GET"])
 def api_retrieve_organization(org_id):
+    """
+    Allows the client to call "retrieve" method on the server side to
+    retrieve the organization from the ledger.
+    
+    Args:
+        org_id (str): The uuid of the organization
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:851/tp/organization/{}" \
                         .format(org_id)
@@ -1235,10 +1419,23 @@ def api_retrieve_organization(org_id):
     
 # API : ORGANIZATION RETRIEVE --ALL {UUID}
 @app.route(
-    "/phyo/api/retrieve/organization/history/<string:org_id>",
+    "/ledger/api/v1.1/orgs/history/<string:org_id>",
     methods=["GET"]
 )
 def api_retrieve_organization_history(org_id):
+    """
+    Allows the client to call "retrieve --all" method on the server side to
+    retrieve the historical states of organization from the ledger.
+    
+    Args:
+        org_id (str): The uuid of the organization
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:851/tp/organization/history/{}" \
                     .format(org_id)
@@ -1247,12 +1444,26 @@ def api_retrieve_organization_history(org_id):
     
     return output
 
-# API : ORGANIZATION RETRIEVE --RANGE START END {UUID}
+# API : ORGANIZATION RETRIEVE --RANGE START END {UUID}  
 @app.route(
-    "/phyo/api/retrieve/organization/<string:org_id>/date/<string:START>",
+    "/ledger/api/v1.1/orgs/<string:org_id>/date/<string:START>",
     methods=["GET"]
 )
 def api_organization_history_date(org_id, START):
+    """
+    Allows the client to call "retrieve --range" method on the server side to
+    retrieve the states of organization for the given date from the ledger.
+    
+    Args:
+        org_id (str): The uuid of the organization
+        START (str): The starting date (format: yyyymmdd)
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:851/tp/organization/{}/date/{}" \
                     .format(org_id, START)
@@ -1264,8 +1475,18 @@ def api_organization_history_date(org_id, START):
 #                              API to API PART                                 #
 ################################################################################
 # API : PART CREATE 
-@app.route("/phyo/api/create/part", methods=["POST"])
+@app.route("/ledger/api/v1.1/parts", methods=["POST"])
 def api_create_part():
+    """
+    Allows the client to call "create" method on the server side to create the
+    part on the legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post("http://127.0.0.1:852/tp/part", 
                     data=json.dumps(request.json), headers=headers)
@@ -1274,8 +1495,18 @@ def api_create_part():
     return output
 
 # API : PART AMEND
-@app.route("/phyo/api/amend/part", methods=["POST"])
+@app.route("/ledger/api/v1.1/parts/amend", methods=["POST"])
 def api_amend_part():
+    """
+    Allows the client to call "amend" method on the server side to amend the
+    part on the legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type" : "application/json"}
     response = requests.post("http://127.0.0.1:852/tp/part/amend", 
                     data=json.dumps(request.json), headers=headers)
@@ -1284,16 +1515,39 @@ def api_amend_part():
     return output
 
 # API : PART LIST PART
-@app.route("/phyo/api/list/part", methods=["GET"])
+@app.route("/ledger/api/v1.1/parts", methods=["GET"])
 def api_list_part():
+    """
+    Allows the client to call "list-part" method on the server side to
+    retrieve the list of parts from the ledger.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get("http://127.0.0.1:852/tp/part")
     output = response.content.decode("utf-8").strip()
     
     return output
 
 # API : PART RETRIEVE {UUID}
-@app.route("/phyo/api/retrieve/part/<string:pt_id>", methods=["GET"])
+@app.route("/ledger/api/v1.1/parts/<string:pt_id>", methods=["GET"])
 def api_retrieve_part(pt_id):
+    """
+    Allows the client to call "retrieve" method on the server side to
+    retrieve the part from the ledger.
+    
+    Args:
+        pt_id (str): The uuid of the part
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:852/tp/part/{}".format(pt_id)
                 )
@@ -1303,10 +1557,23 @@ def api_retrieve_part(pt_id):
     
 # API : PART RETRIEVE --ALL {UUID}
 @app.route(
-    "/phyo/api/retrieve/part/history/<string:pt_id>",
+    "/ledger/api/v1.1/parts/history/<string:pt_id>",
     methods=["GET"]
 )
 def api_retrieve_part_history(pt_id):
+    """
+    Allows the client to call "retrieve --all" method on the server side to
+    retrieve the historical states of part from the ledger.
+    
+    Args:
+        pt_id (str): The uuid of the part
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:852/tp/part/history/{}" \
                     .format(pt_id)
@@ -1317,10 +1584,24 @@ def api_retrieve_part_history(pt_id):
 
 # API : PART RETRIEVE --RANGE START END {UUID}
 @app.route(
-    "/phyo/api/retrieve/part/<string:pt_id>/date/<string:START>",
+    "/ledger/api/v1.1/parts/<string:pt_id>/date/<string:START>",
     methods=["GET"]
 )
 def api_part_history_date(pt_id, START):
+    """
+    Allows the client to call "retrieve --range" method on the server side to
+    retrieve the states of part for the given date from the ledger.
+    
+    Args:
+        pt_id (str): The uuid of the part
+        START (str): The starting date (format: yyyymmdd)
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     response = requests.get(
                     "http://127.0.0.1:852/tp/part/{}/date/{}" \
                     .format(pt_id, START)
@@ -1333,10 +1614,22 @@ def api_part_history_date(pt_id, START):
 ################################################################################
 # API : RELATE PART TO ORGANIZATION AND ORGANIZATION TO PART
 @app.route(
-    "/phyo/api/relate/part/org",
+    "/ledger/api/v1.1/parts/orgs",
     methods=["POST"]
 )
 def api_relation_part_org():
+    """
+    Allows the client to call "pt AddOrganization" and
+    "organization AddPart" methods on the server side to establish the
+    relationship between part and organization on the legder given a correct
+    JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
 
     response = requests.post("http://127.0.0.1:852/tp/part/addorganization", 
@@ -1359,10 +1652,22 @@ def api_relation_part_org():
 
 # API : SEVER PART TO ORGANIZATION AND ORGANIZATION TO PART
 @app.route(
-    "/phyo/api/relate/part/org/delete",
+    "/ledger/api/v1.1/parts/orgs/delete",
     methods=["POST"]
 )
 def api_relation_part_org_delete():
+    """
+    Allows the client to call "pt AddOrganization --delete" and
+    "organization AddPart --delete" methods on the server side to sever the
+    relationship between part and organization on the legder given a correct
+    JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
 
     response = requests.post(
@@ -1389,10 +1694,21 @@ def api_relation_part_org_delete():
 
 # API : RELATE PART TO CATEGORY
 @app.route(
-    "/phyo/api/relate/part/cat",
+    "/ledger/api/v1.1/parts/categories",
     methods=["POST"]
 )
 def api_relation_part_cat():
+    """
+    Allows the client to call "pt AddCategory" method on the server side to
+    establish the relationship between part and category on the legder
+    given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post("http://127.0.0.1:852/tp/part/addcategory", 
                     data=json.dumps(request.json), headers=headers)
@@ -1402,10 +1718,21 @@ def api_relation_part_cat():
     
 # API : SEVER PART TO CATEGORY
 @app.route(
-    "/phyo/api/relate/part/cat/delete",
+    "/ledger/api/v1.1/parts/categories/delete",
     methods=["POST"]
 )
 def api_relation_part_cat_delete():
+    """
+    Allows the client to call "pt AddCategory --delete" method on the server
+    side to sever the relationship between part and category on the legder given
+    a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post("http://127.0.0.1:852/tp/part/addcategory/delete", 
                     data=json.dumps(request.json), headers=headers)
@@ -1415,10 +1742,21 @@ def api_relation_part_cat_delete():
 
 # API : RELATE PART TO ARTIFACT    
 @app.route(
-    "/phyo/api/relate/part/art",
+    "/ledger/api/v1.1/artifacts/part",
     methods=["POST"]
 )
 def api_relation_part_art():
+    """
+    Allows the client to call "pt AddArtifact" method on the server side to
+    establish the relationship between part and artifact on the legder given
+    a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post("http://127.0.0.1:852/tp/part/addartifact", 
                     data=json.dumps(request.json), headers=headers)
@@ -1428,10 +1766,21 @@ def api_relation_part_art():
     
 # API : SEVER PART TO ARTIFACT
 @app.route(
-    "/phyo/api/relate/part/art/delete",
+    "/ledger/api/v1.1/artifacts/part/delete",
     methods=["POST"]
 )
 def api_relation_part_art_delete():
+    """
+    Allows the client to call "pt AddArtifact --delete" method on the server
+    side to sever the relationship between part and artifact on the legder
+    given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post("http://127.0.0.1:852/tp/part/addartifact/delete", 
                     data=json.dumps(request.json), headers=headers)
@@ -1441,10 +1790,21 @@ def api_relation_part_art_delete():
     
 # API : RELATE ARTIFACT TO ARTIFACT    
 @app.route(
-    "/phyo/api/relate/art/art",
+    "/ledger/api/v1.1/artifacts/artifact",
     methods=["POST"]
 )
 def api_relation_art_art():
+    """
+    Allows the client to call "artifact AddArtifact" method on the server side
+    to establish the relationship between artifact and sub_artifact on the
+    legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post(
                     "http://127.0.0.1:853/tp/artifact/addartifact", 
@@ -1456,10 +1816,21 @@ def api_relation_art_art():
     
 # API : SEVER ARTIFACT TO ARTIFACT    
 @app.route(
-    "/phyo/api/relate/art/art/delete",
+    "/ledger/api/v1.1/artifacts/artifact/delete",
     methods=["POST"]
 )
 def api_relation_art_art_delete():
+    """
+    Allows the client to call "artifact AddArtifact --delete" method on the
+    server side to sever the relationship between artifact and sub_artifact on
+    the legder given a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post(
                     "http://127.0.0.1:853/tp/artifact/addartifact/delete", 
@@ -1471,10 +1842,21 @@ def api_relation_art_art_delete():
     
 # API : RELATE ARTIFACT TO URI    
 @app.route(
-    "/phyo/api/relate/art/uri",
+    "/ledger/api/v1.1/artifacts/uri",
     methods=["POST"]
 )
 def api_relation_art_uri():
+    """
+    Allows the client to call "artifact AddURI" method on the server side
+    to establish the relationship between artifact and uri on the legder given
+    a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post(
                     "http://127.0.0.1:853/tp/artifact/adduri", 
@@ -1486,10 +1868,21 @@ def api_relation_art_uri():
     
 # API : SEVER ARTIFACT TO URI    
 @app.route(
-    "/phyo/api/relate/art/uri/delete",
+    "/ledger/api/v1.1/artifacts/uri/delete",
     methods=["POST"]
 )
 def api_relation_art_uri_delete():
+    """
+    Allows the client to call "artifact AddURI --delete" method on the server
+    side to sever the relationship between artifact and uri on the legder given
+    a correct JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
     headers = {"content-type": "application/json"}
     response = requests.post(
                     "http://127.0.0.1:853/tp/artifact/adduri/delete", 

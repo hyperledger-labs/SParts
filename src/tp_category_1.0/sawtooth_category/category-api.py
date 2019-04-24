@@ -11,25 +11,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ------------------------------------------------------------------------------
-
+################################################################################
+#                               LIBS & DEPS                                    #
+################################################################################
 from flask import Flask, jsonify, make_response, request, json
 import category_cli
 import configparser
 ################################################################################
-#                               LIBS & DEPS                                    #
+#                                FLASK APP                                     #
 ################################################################################
 app = Flask(__name__)
 
 # PING
 @app.route("/tp/category/ping", methods=["GET"])
 def get_ping_result():
+    """
+    Allows the client side API call to "ping" the port localhost:850 to ensure
+    that the port is up and running.
     
-    output = ret_msg("success","OK","EmptyRecord","Category")
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    """
+    output = ret_msg("success", "OK", "EmptyRecord", "Category")
     return output 
 
 # CREATE
 @app.route("/tp/category", methods=["POST"])
 def create_category():
+    """
+    Allows the client side API call to "create" the category given a correct
+    JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    Raises:
+        Exception:
+            * If the request does not contain JSON payload
+        
+    """
     config = configparser.ConfigParser()
     config.set("DEFAULT", "url", "http://127.0.0.1:8008")
     
@@ -46,6 +71,20 @@ def create_category():
 # AMEND
 @app.route("/tp/category/amend", methods=["POST"])
 def amend_category():
+    """
+    Allows the client side API call to "amend" the category given a correct
+    JSON formatted payload.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+        
+    Raises:
+        Exception:
+            * If the request does not contain JSON payload
+            
+    """
     config = configparser.ConfigParser()
     config.set("DEFAULT", "url", "http://127.0.0.1:8008")
     
@@ -62,6 +101,20 @@ def amend_category():
 # LIST
 @app.route("/tp/category", methods=["GET"])
 def list_category():
+    """
+    Allows the client side API call to "list" the category.
+    
+    Returns:
+        type: str
+        String representing JSON object which contains the result of
+        the "category list-category" if the call was a success; else,
+        JSON object which contains error message.
+        
+    Raises:
+        Exception:
+            * If the request does not contain JSON payload
+    
+    """
     config = configparser.ConfigParser()
     config.set("DEFAULT", "url", "http://127.0.0.1:8008")
     
@@ -75,6 +128,20 @@ def list_category():
 # RETRIEVE MOST RECENT BY UUID
 @app.route("/tp/category/<string:category_id>", methods=["GET"])
 def retrieve_category(category_id):
+    """
+    Allows the client side API call to "retrieve" the category.
+    
+    Returns:
+        type: str
+        String representing JSON object which contains the result of
+        the "category retrieve {uuid}" if the call was a success; else,
+        JSON object which contains error message.
+        
+    Raises:
+        Exception:
+            * If the request does not contain JSON payload
+    
+    """
     config = configparser.ConfigParser()
     config.set("DEFAULT", "url", "http://127.0.0.1:8008")
     
@@ -88,6 +155,21 @@ def retrieve_category(category_id):
 # RETRIEVE HISTORY OF UUID
 @app.route("/tp/category/history/<string:category_id>", methods=["GET"])
 def retrieve_category_history(category_id):
+    """
+    Allows the client side API call to "retrieve" the category and display its
+    history up to its creation block.
+    
+    Returns:
+        type: str
+        String representing JSON object which contains the result of
+        the "category retrieve --all {uuid}" if the call was a success; else,
+        JSON object which contains error message.
+        
+    Raises:
+        Exception:
+            * If the request does not contain JSON payload
+    
+    """
     config = configparser.ConfigParser()
     config.set("DEFAULT", "url", "http://127.0.0.1:8008")
     
@@ -105,6 +187,21 @@ def retrieve_category_history(category_id):
     methods=["GET"]
 )
 def retrieve_category_history_date(category_id, START):
+    """
+    Allows the client side API call to "retrieve" the category and display its
+    history for the specified date.
+    
+    Returns:
+        type: str
+        String representing JSON object which contains the result of
+        the "category retrieve --range START END {uuid}" if the call was
+        a success; else, JSON object which contains error message.
+        
+    Raises:
+        Exception:
+            * If the request does not contain JSON payload
+    
+    """
     config = configparser.ConfigParser()
     config.set("DEFAULT", "url", "http://127.0.0.1:8008")
     
@@ -119,6 +216,15 @@ def retrieve_category_history_date(category_id, START):
 #                                  PRINT                                       #
 ################################################################################
 def ret_msg(status, message, result_type, result):
+    """
+    Helps create the message to be returned.
+    
+    Returns:
+        type: str
+        String representing JSON object which allows the client to know that
+        the call was either a success or a failure.
+    
+    """
     msgJSON = "{}"
     key = json.loads(msgJSON)
     key["status"] = status

@@ -1,4 +1,4 @@
 [console_scripts]
 artifact = sawtooth_artifact.artifact_cli:main_wrapper
-artifact_tp_python = sawtooth_artifact.processor.main:main
+tp_artifact = sawtooth_artifact.processor.main:main
 

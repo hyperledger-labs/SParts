@@ -1,5 +1,5 @@
 # Copyright 2016 Intel Corporation
-#
+# Copyright 2017 Wind River 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,167 +12,269 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ------------------------------------------------------------------------------
-
+################################################################################
+#                               LIBS & DEPS                                    #
+################################################################################
 import hashlib
 import logging
 import json
-from datetime import datetime
 from collections import OrderedDict
-# from sawtooth_sdk.processor.state import StateEntry
 from sawtooth_sdk.processor.exceptions import InvalidTransaction
 from sawtooth_sdk.processor.exceptions import InternalError
-# from sawtooth_sdk.protobuf.transaction_pb2 import TransactionHeader
 from sawtooth_sdk.processor.handler import TransactionHandler
 
-
 LOGGER = logging.getLogger(__name__)
-
-
+################################################################################
+#                               HANDLER OBJ                                    #
+################################################################################
 class ArtifactTransactionHandler:
+    """
+    Class for handling the Transaction Family : Artifact
+    
+    Attributes:
+        namespace_prefix (str): The namespace prefix of the transaction family
+        
+    """
+    
     def __init__(self, namespace_prefix):
+        """
+        Constructs the ArtifactTransactionHandler object.
+        
+        Args:
+            namespace_prefix (str):
+                The namepsace prefix of the transaction family
+                
+        """
         self._namespace_prefix = namespace_prefix
 
     @property
     def family_name(self):
-        return 'artifact'
+        """
+        type: str
+        Returns the family name of the handler object.
+        
+        """
+        return "artifact"
 
     @property
     def family_versions(self):
-        return ['1.0']
+        """
+        type: list of str
+        Returns the family version of the handler object.
+        
+        """
+        return ["1.0"]
 
     @property
     def encodings(self):
-        return ['csv-utf8']
+        """
+        type: list of str
+        Returns the encoding scheme used for the data for the handler object.
+        
+        """
+        return ["csv-utf8"]
 
     @property
     def namespaces(self):
+        """
+        type: list of str
+        Returns the namespaces associating with the handler object.
+        
+        """
         return [self._namespace_prefix]
-
+################################################################################
+#                                 FUNCTIONS                                    #
+################################################################################
     def apply(self, transaction, context):
-
-
-        # header = TransactionHeader()
-        # header.ParseFromString(transaction.header)
-
+        """
+        Applys the payload from transaction onto the state storage.
+        
+        Args:
+            transaction (Transaction): The transaction pertaining the payload
+            context (State): The current state of the ledger
+            
+        Returns:
+            type: State
+            The new state of the ledger, which includes the data from the
+            transaction, is returned to be stored on the state storage.
+        
+        Raises:
+            InvalidTransaction:
+                * If deserialization for payload from transaction failed
+                * If "create" was called on non-unique uuid
+                * If "amend" was called on non-existing uuid
+                * If "Add..." were called on non-existing uuid
+                * If invalid operation was called
+            InternalError:
+                * If deserialization of State.data failed
+            
+        """
+        
+        # Parsing required fields from transaction payload
         try:
-            # The payload is csv utf-8 encoded string
-            artifact_id,alias,artifact_name,artifact_type,artifact_checksum,label,openchain,timestamp,action, sub_artifact_id,version,artifact_checksum_uri,content_type,size,uri_type,location,path = transaction.payload.decode().split(",")
+            
+            payload = json.loads(transaction.payload.decode())
+            artifact_id             = payload["uuid"]
+            artifact_alias          = payload["alias"]
+            artifact_name           = payload["name"]
+            artifact_type           = payload["content_type"]
+            artifact_checksum       = payload["checksum"]
+            artifact_label          = payload["label"]
+            artifact_openchain      = payload["openchain"]
+            action                  = payload["action"]
+            prev                    = payload["prev_block"]
+            cur                     = payload["cur_block"]
+            timestamp               = payload["timestamp"]
+            artifact_list           = payload["artifact_list"]
+            uri_list                = payload["uri_list"]
+            
         except ValueError:
             raise InvalidTransaction("Invalid payload serialization")
-
-        validate_transaction(artifact_id,action)
-               
-        data_address = make_artifact_address(self._namespace_prefix,artifact_id)
         
-        if  artifact_id  == "":
-            raise InvalidTransaction("Artifact Data is required")
-
-        if action == "":
-            raise InvalidTransaction("Action is required")
-          
-        # state_entries = state_store.get([data_address])
+        # Soft sanity check and loading required data
+        validate_transaction(artifact_id, action)
+        data_address = make_artifact_address(self._namespace_prefix, 
+                                                    artifact_id)
         state_entries = context.get_state([data_address])
-
-       
+        
+        # Hard sanity check before creating final payload for the state storage
         if len(state_entries) != 0:
             try:
-                   
-                    stored_artifact_id, stored_artifact_str = \
-                    state_entries[0].data.decode().split(",",1)
+                
+                stored_artifact = json.loads(state_entries[0].data.decode())
+                stored_artifact_id = stored_artifact["uuid"]
                              
-                    stored_artifact = json.loads(stored_artifact_str)
             except ValueError:
                 raise InternalError("Failed to deserialize data.")
  
         else:
             stored_artifact_id = stored_artifact = None
             
-        # 3. Validate the artifact data
         if action == "create" and stored_artifact_id is not None:
             raise InvalidTransaction("Invalid Action-artifact already exists.")
-
-        elif action == "AddArtifact":
-            if stored_artifact_id is None:
-                raise InvalidTransaction(
-                    "Invalid Action-Add Artifact requires an existing artifact."
-                )
         
-        elif action == "AddURI":
+        elif action == "create":
+            artifact = create_artifact(artifact_id, artifact_alias, 
+                            artifact_name, artifact_type, artifact_checksum, 
+                            artifact_label, artifact_openchain, 
+                            prev, cur, timestamp)
+        elif action == "amend" and stored_artifact_id is not None:
+            artifact = create_artifact(artifact_id, artifact_alias, 
+                            artifact_name, artifact_type, artifact_checksum, 
+                            artifact_label, artifact_openchain,
+                            prev, cur, timestamp, artifact_list, uri_list)
+        elif action == "AddArtifact" or action == "AddURI":
             if stored_artifact_id is None:
                 raise InvalidTransaction(
-                    "Invalid Action-Add URI requires an existing artifact."
-                ) 
-     
-        if action == "create":
-            artifact = create_artifact(artifact_id,alias,artifact_name,artifact_type,artifact_checksum,label,openchain,timestamp)
-            stored_artifact_id = artifact_id
-            stored_artifact = artifact
-           
-        if action == "AddArtifact":
-            if sub_artifact_id not in stored_artifact_str:
-                artifact = add_artifact(sub_artifact_id,stored_artifact,path)
-                stored_artifact = artifact
-                
-                
-        if action == "AddURI":
-            artifact = add_URI(stored_artifact,version,artifact_checksum_uri,content_type,size,uri_type,location)
-            stored_artifact = artifact
-            
-            
-      
-        stored_artifact_str = json.dumps(stored_artifact)
-        data=",".join([stored_artifact_id,stored_artifact_str]).encode()
+                    "Invalid Action-requires an existing artifact."
+                )
+            artifact = create_artifact(artifact_id, artifact_alias, 
+                            artifact_name, artifact_type, artifact_checksum, 
+                            artifact_label, artifact_openchain, 
+                            prev, cur, timestamp, 
+                            artifact_list, uri_list)
+        
+        # Adding the final payload to the state storage    
+        data = json.dumps(artifact).encode()
         addresses = context.set_state({data_address:data})
        
-        # addresses = state_store.set([
-        #     StateEntry(
-        #         address=data_address,
-        #         data=",".join([stored_artifact_id, stored_artifact_str]).encode()
-                
-        #     )
-        # ])
-       
         return addresses
-        
-        
-def add_artifact(uuid,parent_artifact,path):
+################################################################################
+#                             HELPER FUNCTIONS                                 #
+################################################################################
+def create_artifact(artifact_id, artifact_alias, artifact_name, artifact_type, 
+                    artifact_checksum, artifact_label, artifact_openchain, 
+                    prev, cur, timestamp, artifact_list=[], uri_list=[]):
+    """
+    Constructs the payload to be stored in the state storage.
     
-    artifact_list = parent_artifact['artifact_list']
-    artifact_dic = {'artifact_id': uuid,'path':path}
-    artifact_list.append(artifact_dic)
-    parent_artifact['artifact_list'] = artifact_list  
-    return parent_artifact     
-
-def add_URI(artifact,version,artifact_checksum,content_type,size,uri_type,location):
-   
-    URI_list = artifact['uri_list']
-    URI_dic = {'version': version,'checksum': artifact_checksum,'content_type': content_type,'size':size,'uri_type':uri_type,'location':location}      
-    URI_list.append(URI_dic)
-    artifact['uri_list'] = URI_list
-    return artifact
-
+    Args:
+        artifact_uuid (str): The uuid of the artifact
+        artifact_alias (str): The alias of the artifact
+        artifact_name (str): The name of the artifact
+        artifact_type (str): The type of the artifact
+        artifact_checksum (str): The checksum of the artifact
+        artifact_label (str): The label of the artifact
+        artifact_openchain (str): The openchain of the artifact
+        prev (str): The previous block id of the transaction (default "0")
+        cur (str): the current block id of the transaction
+        timestamp (str): The UTC time for when the transaction was submitted
+        artifact_list (list of dict):
+            The list of the artifact uuid associated with the artifact
+            (default [])
+        uri_list (list of dict):
+            The list of the uri associated with the artifact (default [])
+        
+    Returns:
+        type: dict
+        The dictionary pertaining all the param is created and returned to
+        be stored on the state storage.
     
+    """
+    return {    
+                "uuid"          : artifact_id,
+                "alias"         : artifact_alias,
+                "name"          : artifact_name,
+                "content_type"  : artifact_type,
+                "checksum"      : artifact_checksum,
+                "label"         : artifact_label,
+                "openchain"     : artifact_openchain,
+                "prev_block"    : prev, 
+                "cur_block"     : cur,
+                "timestamp"     : timestamp,
+                "artifact_list" : artifact_list,
+                "uri_list"      : uri_list
+            }
 
-def create_artifact(uuid,alias,art_name,art_type,art_checksum,label,openchain,timestamp):
-    artifact = {'artifact_id': uuid,'alias':alias,'artifact_name': art_name,'artifact_type': art_type,'artifact_checksum': art_checksum,'label':label,'openchain': openchain,'timestamp':timestamp,'artifact_list':[],'uri_list':[]}
-    return artifact 
-
-
-def validate_transaction( artifact_id, action):
+def validate_transaction(artifact_id, action):
+    """
+    Performs soft sanity check in order to improve runtime by eliminating the
+    obvious exception errors.
+    
+    Args:
+        artifact_id (str): The uuid of the artifact
+        action (str): The command to be performed
+    
+    Raises:
+        InvalidTransaction:
+            If the uuid or the action are not passed in or the 
+            action is not a valid action.
+    
+    """
     if not artifact_id:
-        raise InvalidTransaction('Artifact ID is required')
-    
+        raise InvalidTransaction("Artifact ID is required")
     if not action:
-        raise InvalidTransaction('Action is required')
-
-    if action not in ("AddArtifact", "create","AddURI"):
-        raise InvalidTransaction('Invalid action: {}'.format(action))
+        raise InvalidTransaction("Action is required")
+    if action not in ("AddArtifact", "create", "AddURI", "amend"):
+        raise InvalidTransaction("Invalid action: {}".format(action))
 
 def make_artifact_address(namespace_prefix, artifact_id):
+    """
+    Creates an artifact address which will be used to recover the associated
+    UUID if the artifact already exists in the state storage; or, used as a key to
+    store the new data into the state storage.
+    
+    Args:
+        namespace_prefix (str):
+            The prefix associating with the transaction family
+        artifact_id (str): The uuid of the artifact
+        
+    Returns:
+        type: str
+        The address-to-be, which associates the uuid and the namespace prefix.
+    
+    """
     return namespace_prefix + \
-        hashlib.sha512(artifact_id.encode('utf-8')).hexdigest()[:64]
+        hashlib.sha512(artifact_id.encode("utf-8")).hexdigest()[:64]
 
 def _display(msg):
+    """
+    Logs the message to the debug logger.
+    
+    Args:
+        msg (str): The message that is to be logged into the debug logger
+    
+    """
     n = msg.count("\n")
 
     if n > 0:
@@ -186,3 +288,6 @@ def _display(msg):
     for line in msg:
         LOGGER.debug("+ " + line.center(length) + " +")
     LOGGER.debug("+" + (length + 2) * "-" + "+")
+################################################################################
+#                                                                              #
+################################################################################
