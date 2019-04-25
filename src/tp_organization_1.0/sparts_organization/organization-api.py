@@ -12,7 +12,7 @@
 # limitations under the License.
 # ------------------------------------------------------------------------------
 ################################################################################
-#                               LIBS & DEPS                                    #
+#                         LIBRARIES & DEPENDENCIES                             #
 ################################################################################
 from flask import Flask, jsonify, make_response, request, json
 import organization_cli

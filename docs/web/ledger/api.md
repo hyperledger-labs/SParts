@@ -111,7 +111,8 @@ Example of an <u>envelope</u> response:
 {	status: 	"success",
 	message: 	"OK",
 	result_type: "ArtifactRecord",
-	result: {    name: "Zephyr 1.12 Envelope",
+	result: {   
+				name: "Zephyr 1.12 Envelope",
 				uuid: "9b602058-c73f-4f02-9237-b71a2760fc15",
 				filename: "Zephyr-1.12-envelope.zip",
 				checksum: "a1e2486417f4cd7fc670bf5facd5870af9c1e3a5",
@@ -121,20 +122,25 @@ Example of an <u>envelope</u> response:
 				openchain: "True",
 				timestamp: "2018-06-18 00:30:12.498167"
 				artifact_list: [
-                    		{ uuid: "731ef148-5f81-11e8-9c2d-fa7ae01bbebc",
-                               path: "/spdx"},
-						   { uuid: "f2cef148-5f81-11e8-8f51-fa7ae01bb93b",
-						     path: "/notices"}
+            		{
+            			uuid: "731ef148-5f81-11e8-9c2d-fa7ae01bbebc",
+                    	path: "/spdx"
+            		},
+					{
+						uuid: "f2cef148-5f81-11e8-8f51-fa7ae01bb93b",
+					    path: "/notices"
+					}
 				] 
-				uri_list: [ {
-                    			version: "1.0",
-							   alias: "zephyr-envelope-1.12",
-							   checksum: "f67d3213907a52012a4367d8ad4f093b65abc016",
-							   size:	"235120"
-							   content_type: "http",
-							   location: "https://...."
-						   }
-						 ]
+				uri_list: [ 
+					{
+            			version: "1.0",
+						alias: "zephyr-envelope-1.12",
+						checksum: "f67d3213907a52012a4367d8ad4f093b65abc016",
+						size:	"235120"
+						content_type: "http",
+						location: "https://...."
+					}
+				]
 }
 ```
 
