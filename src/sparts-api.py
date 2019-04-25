@@ -12,7 +12,7 @@
 # limitations under the License.
 # ------------------------------------------------------------------------------
 ################################################################################
-#                               LIBS & DEPS                                    #
+#                         LIBRARIES & DEPENDENCIES                             #
 ################################################################################
 #!flask/bin/python
 import os
@@ -1118,14 +1118,14 @@ def api_list_artifact():
     return output
 
 # API : ARTIFACT RETRIEVE {UUID}
-@app.route("/ledger/api/v1.1/artifacts/<string:art_id>", methods=["GET"])
-def api_retrieve_artifact(art_id):
+@app.route("/ledger/api/v1.1/artifacts/<string:artifact_id>", methods=["GET"])
+def api_retrieve_artifact(artifact_id):
     """
     Allows the client to call "retrieve" method on the server side to
     retrieve the artifact from the ledger.
     
     Args:
-        art_id (str): The uuid of the artifact
+        artifact_id (str): The uuid of the artifact
     
     Returns:
         type: str
@@ -1134,7 +1134,7 @@ def api_retrieve_artifact(art_id):
         
     """
     response = requests.get(
-                    "http://127.0.0.1:853/tp/artifact/{}".format(art_id)
+                    "http://127.0.0.1:853/tp/artifact/{}".format(artifact_id)
                 )
     output = response.content.decode("utf-8").strip()
     
@@ -1142,16 +1142,16 @@ def api_retrieve_artifact(art_id):
     
 # API : ARTIFACT RETRIEVE --ALL {UUID}
 @app.route(
-    "/ledger/api/v1.1/artifacts/history/<string:art_id>",
+    "/ledger/api/v1.1/artifacts/history/<string:artifact_id>",
     methods=["GET"]
 )
-def api_retrieve_artifact_history(art_id):
+def api_retrieve_artifact_history(artifact_id):
     """
     Allows the client to call "retrieve --all" method on the server side to
     retrieve the historical states of artifact from the ledger.
     
     Args:
-        art_id (str): The uuid of the artifact
+        artifact_id (str): The uuid of the artifact
     
     Returns:
         type: str
@@ -1161,7 +1161,7 @@ def api_retrieve_artifact_history(art_id):
     """
     response = requests.get(
                     "http://127.0.0.1:853/tp/artifact/history/{}" \
-                    .format(art_id)
+                    .format(artifact_id)
                 )
     output = response.content.decode("utf-8").strip()
     
@@ -1169,16 +1169,16 @@ def api_retrieve_artifact_history(art_id):
 
 # API : ARTIFACT RETRIEVE --RANGE START END {UUID}
 @app.route(
-    "/ledger/api/v1.1/artifacts/<string:art_id>/date/<string:START>",
+    "/ledger/api/v1.1/artifacts/<string:artifact_id>/date/<string:START>",
     methods=["GET"]
 )
-def api_artifact_history_date(art_id, START):
+def api_artifact_history_date(artifact_id, START):
     """
     Allows the client to call "retrieve --range" method on the server side to
     retrieve the states of artifact for the given date from the ledger.
     
     Args:
-        art_id (str): The uuid of the artifact
+        artifact_id (str): The uuid of the artifact
         START (str): The starting date (format: yyyymmdd)
     
     Returns:
@@ -1189,7 +1189,7 @@ def api_artifact_history_date(art_id, START):
     """
     response = requests.get(
                     "http://127.0.0.1:853/tp/artifact/{}/date/{}" \
-                    .format(art_id, START)
+                    .format(artifact_id, START)
                 )
     output = response.content.decode("utf-8").strip()
     
@@ -1617,7 +1617,7 @@ def api_part_history_date(pt_id, START):
     "/ledger/api/v1.1/parts/orgs",
     methods=["POST"]
 )
-def api_relation_part_org():
+def api_relation_part_organization():
     """
     Allows the client to call "pt AddOrganization" and
     "organization AddPart" methods on the server side to establish the
@@ -1655,7 +1655,7 @@ def api_relation_part_org():
     "/ledger/api/v1.1/parts/orgs/delete",
     methods=["POST"]
 )
-def api_relation_part_org_delete():
+def api_relation_part_organization_delete():
     """
     Allows the client to call "pt AddOrganization --delete" and
     "organization AddPart --delete" methods on the server side to sever the
@@ -1697,7 +1697,7 @@ def api_relation_part_org_delete():
     "/ledger/api/v1.1/parts/categories",
     methods=["POST"]
 )
-def api_relation_part_cat():
+def api_relation_part_category():
     """
     Allows the client to call "pt AddCategory" method on the server side to
     establish the relationship between part and category on the legder
@@ -1721,7 +1721,7 @@ def api_relation_part_cat():
     "/ledger/api/v1.1/parts/categories/delete",
     methods=["POST"]
 )
-def api_relation_part_cat_delete():
+def api_relation_part_category_delete():
     """
     Allows the client to call "pt AddCategory --delete" method on the server
     side to sever the relationship between part and category on the legder given
@@ -1745,7 +1745,7 @@ def api_relation_part_cat_delete():
     "/ledger/api/v1.1/artifacts/part",
     methods=["POST"]
 )
-def api_relation_part_art():
+def api_relation_part_artifact():
     """
     Allows the client to call "pt AddArtifact" method on the server side to
     establish the relationship between part and artifact on the legder given
@@ -1769,7 +1769,7 @@ def api_relation_part_art():
     "/ledger/api/v1.1/artifacts/part/delete",
     methods=["POST"]
 )
-def api_relation_part_art_delete():
+def api_relation_part_artifact_delete():
     """
     Allows the client to call "pt AddArtifact --delete" method on the server
     side to sever the relationship between part and artifact on the legder
@@ -1793,7 +1793,7 @@ def api_relation_part_art_delete():
     "/ledger/api/v1.1/artifacts/artifact",
     methods=["POST"]
 )
-def api_relation_art_art():
+def api_relation_artifact_artifact():
     """
     Allows the client to call "artifact AddArtifact" method on the server side
     to establish the relationship between artifact and sub_artifact on the
@@ -1819,7 +1819,7 @@ def api_relation_art_art():
     "/ledger/api/v1.1/artifacts/artifact/delete",
     methods=["POST"]
 )
-def api_relation_art_art_delete():
+def api_relation_artifact_artifact_delete():
     """
     Allows the client to call "artifact AddArtifact --delete" method on the
     server side to sever the relationship between artifact and sub_artifact on
@@ -1845,7 +1845,7 @@ def api_relation_art_art_delete():
     "/ledger/api/v1.1/artifacts/uri",
     methods=["POST"]
 )
-def api_relation_art_uri():
+def api_relation_artifact_uri():
     """
     Allows the client to call "artifact AddURI" method on the server side
     to establish the relationship between artifact and uri on the legder given
@@ -1871,7 +1871,7 @@ def api_relation_art_uri():
     "/ledger/api/v1.1/artifacts/uri/delete",
     methods=["POST"]
 )
-def api_relation_art_uri_delete():
+def api_relation_artifact_uri_delete():
     """
     Allows the client to call "artifact AddURI --delete" method on the server
     side to sever the relationship between artifact and uri on the legder given
