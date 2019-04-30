@@ -1,0 +1,12 @@
+[Unit]
+Description=Sawtooth PART TP Python
+After=network.target
+
+[Service]
+User=sawtooth
+Group=sawtooth
+EnvironmentFile=-/etc/default/sawtooth-part-tp-python
+ExecStart=/usr/bin/part-tp-python $SAWTOOTH_PART_TP_PYTHON_ARGS
+
+[Install]
+WantedBy=multi-user.target

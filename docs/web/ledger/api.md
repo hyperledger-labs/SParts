@@ -1,5 +1,3 @@
-
-
 # Ledger Node API
 
 
@@ -1090,7 +1088,3 @@ Example Response:
 	Location    string `json:"location"`       // actual link
 }
 ```
-
-
-
-#### 
