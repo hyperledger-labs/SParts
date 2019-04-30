@@ -1,4 +1,0 @@
-[console_scripts]
-user = sawtooth_user.user_cli:main_wrapper
-user_tp_python = sawtooth_user.processor.main:main
-
