@@ -1,0 +1,4 @@
+[console_scripts]
+artifact = sawtooth_artifact.artifact_cli:main_wrapper
+tp_artifact = sawtooth_artifact.processor.main:main
+
