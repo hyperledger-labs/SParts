@@ -207,7 +207,7 @@ def retrieve_category_history_date(category_id, START):
     
     try:
         output = category_cli.api_do_retrieve_category(
-                        category_id, config, range_flag=[START, START]
+                        category_id, config, range_flag=["0", START]
                     )
         return output
     except Exception as e:

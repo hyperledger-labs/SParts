@@ -15,7 +15,7 @@
 #                         LIBRARIES & DEPENDENCIES                             #
 ################################################################################
 from flask import Flask, jsonify, make_response, request, json
-import category_cli
+import artifact_cli
 import configparser
 ################################################################################
 #                                FLASK APP                                     #
@@ -207,7 +207,7 @@ def retrieve_artifact_history_date(artifact_id, START):
     
     try:
         output = artifact_cli.api_do_retrieve_artifact(
-                        artifact_id, config, range_flag=[START, START]
+                        artifact_id, config, range_flag=["0", START]
                     )
         return output
     except Exception as e:

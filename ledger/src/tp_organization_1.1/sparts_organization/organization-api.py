@@ -211,7 +211,7 @@ def retrieve_organization_history_date(organization_id, START):
     
     try:
         output = organization_cli.api_do_retrieve_organization(
-                        organization_id, config, range_flag=[START, START]
+                        organization_id, config, range_flag=["0", START]
                     )
         return output
     except Exception as e:

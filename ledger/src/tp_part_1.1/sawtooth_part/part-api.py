@@ -209,7 +209,7 @@ def retrieve_part_history_date(part_id, START):
     
     try:
         output = part_cli.api_do_retrieve_part(
-                        part_id, config, range_flag=[START, START]
+                        part_id, config, range_flag=["0", START]
                     )
         return output
     except Exception as e:
