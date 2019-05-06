@@ -1,6 +1,6 @@
 # Introduction
 
-# Short Description
+## Short Description
 
 Tracking all the different sub components used to construct a modern day device software can be challenging especially if components are contributed by multiple different suppliers. When we talk about devices think IoT things i.e., Internet of Things (IoT). The Software Parts initiative delivers a Sawtooth-based ledger that provides both access and accountability for relevant information for software parts exchanged among manufacturing supply chain participants. A software part is any software component that could be represented as one or more files. (e.g., binary library, source code package, application, container or an entire operating system runtime). Examples of the types of information tracked for a given software part include (but is not limited to) :
 
