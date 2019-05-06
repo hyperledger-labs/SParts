@@ -1024,7 +1024,15 @@ def api_do_retrieve_artifact(
         if all_flag == False:
             output = ret_msg("success", "OK", "ArtifactRecord", data.decode())
         else:
-            output = ret_msg("success", "OK", "ArtifactRecord", data)
+            if range_flag == None:
+                output = ret_msg("success", "OK", "ArtifactRecord", data)
+            else:
+                if len(data) != 0:
+                    output = ret_msg(
+                        "success", "OK", "ArtifactRecord", json.dumps(data[0])
+                    )
+                else:
+                    output = ret_msg("success", "OK", "ArtifactRecord", "{}")
         
         return output
     else:

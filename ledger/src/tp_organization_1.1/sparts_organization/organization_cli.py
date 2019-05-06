@@ -878,7 +878,18 @@ def api_do_retrieve_organization(org_id, config, all_flag=False,
             output = ret_msg("success", "OK", "OrganizationRecord", 
                         data.decode())
         else:
-            output = ret_msg("success", "OK", "OrganizationRecord", data)
+            if range_flag == None:
+                output = ret_msg("success", "OK", "OrganizationRecord", data)
+            else:
+                if len(data) != 0:
+                    output = ret_msg(
+                        "success", "OK", "OrganizationRecord",
+                        json.dumps(data[0])
+                    )
+                else:
+                    output = ret_msg(
+                        "success", "OK", "OrganizationRecord", "{}"
+                    )
         
         return output
     else:

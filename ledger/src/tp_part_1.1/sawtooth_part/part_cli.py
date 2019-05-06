@@ -1093,7 +1093,15 @@ def api_do_retrieve_part(pt_id, config, all_flag=False, range_flag=None):
         if all_flag == False:
             output = ret_msg("success", "OK", "PartRecord", data.decode())
         else:
-            output = ret_msg("success", "OK", "PartRecord", data)
+            if range_flag == None:
+                output = ret_msg("success", "OK", "PartRecord", data)
+            else:
+                if len(data) != 0:
+                    output = ret_msg(
+                        "success", "OK", "PartRecord", json.dumps(data[0])
+                    )
+                else:
+                    output = ret_msg("success", "OK", "PartRecord", "{}")
             
         return output
     else:

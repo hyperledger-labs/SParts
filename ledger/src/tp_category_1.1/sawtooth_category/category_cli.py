@@ -727,7 +727,15 @@ def api_do_retrieve_category(category_id, config,
         if all_flag == False:
             output = ret_msg("success", "OK", "CategoryRecord", data.decode())
         else:
-            output = ret_msg("success", "OK", "CategoryRecord", data)
+            if range_flag == None:
+                output = ret_msg("success", "OK", "CategoryRecord", data)
+            else:
+                if len(data) != 0:
+                    output = ret_msg(
+                        "success", "OK", "CategoryRecord", json.dumps(data[0])
+                    )
+                else:
+                    output = ret_msg("success", "OK", "CategoryRecord", "{}")
             
         return output
     else:
