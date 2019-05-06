@@ -1,0 +1,63 @@
+overwriting file: /root/.sawtooth/keys/root.priv
+overwriting file: /root/.sawtooth/keys/root.pub
+[32m[2018-11-15 23:39:33.614 INFO     messaging][0m [37mConnecting to tcp://localhost:4004[0m
+[32m[2018-11-15 23:39:33.614 INFO     rest_api][0m [37mCreating handlers for validator at tcp://localhost:4004[0m
+[32m[2018-11-15 23:39:33.616 INFO     rest_api][0m [37mStarting REST API on 127.0.0.1:8008[0m
+[31m[2018-11-15 23:39:33.618 ERROR    rest_api][0m [37m[Errno 98] error while attempting to bind on address ('127.0.0.1', 8008): address already in use
+Traceback (most recent call last):
+  File "/usr/lib/python3.5/asyncio/base_events.py", line 958, in create_server
+    sock.bind(sa)
+OSError: [Errno 98] Address already in use
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/sawtooth_rest_api/rest_api.py", line 246, in main
+    client_max_size=rest_api_config.client_max_size)
+  File "/usr/lib/python3/dist-packages/sawtooth_rest_api/rest_api.py", line 142, in start_rest_api
+    access_log_format='%r: %s status, %b size, in %Tf s')
+  File "/usr/lib/python3/dist-packages/aiohttp/web.py", line 454, in run_app
+    asyncio.gather(*server_creations, loop=loop)
+  File "/usr/lib/python3.5/asyncio/base_events.py", line 387, in run_until_complete
+    return future.result()
+  File "/usr/lib/python3.5/asyncio/futures.py", line 274, in result
+    raise self._exception
+  File "/usr/lib/python3.5/asyncio/tasks.py", line 239, in _step
+    result = coro.send(None)
+  File "/usr/lib/python3.5/asyncio/base_events.py", line 962, in create_server
+    % (sa, err.strerror.lower()))
+OSError: [Errno 98] error while attempting to bind on address ('127.0.0.1', 8008): address already in use[0m
+Generated config-genesis.batch
+[32m[2018-11-15 23:39:35.539 INFO     core][0m [37mregister attempt: OK[0m
+Processing config-genesis.batch...
+Generating /var/lib/sawtooth/genesis.batch
+overwriting file: /etc/sawtooth/keys/validator.priv
+overwriting file: /etc/sawtooth/keys/validator.pub
+[32m[2018-11-15 23:39:43.071 INFO     path][0m [37mSkipping path loading from non-existent config file: /etc/sawtooth/path.toml[0m
+[32m[2018-11-15 23:39:43.071 INFO     validator][0m [37mSkipping validator config loading from non-existent config file: /etc/sawtooth/validator.toml[0m
+[32m[2018-11-15 23:39:43.071 INFO     keys][0m [37mLoading signing key: /etc/sawtooth/keys/validator.priv[0m
+[32m[2018-11-15 23:39:43.073 INFO     cli][0m [37msawtooth-validator (Hyperledger Sawtooth) version 1.0.5[0m
+[32m[2018-11-15 23:39:43.073 INFO     cli][0m [37mconfig [path]: config_dir = "/etc/sawtooth"; config [path]: key_dir = "/etc/sawtooth/keys"; config [path]: data_dir = "/var/lib/sawtooth"; config [path]: log_dir = "/var/log/sawtooth"; config [path]: policy_dir = "/etc/sawtooth/policy"[0m
+[33m[2018-11-15 23:39:43.073 WARNING  cli][0m [37mNetwork key pair is not configured, Network communications between validators will not be authenticated or encrypted.[0m
+[31m[2018-11-15 23:39:43.084 ERROR    cli][0m [37mCan't bind to tcp://0.0.0.0:4004: Address already in use[0m
+Exception in thread InterconnectThread-1:
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/sawtooth_validator/networking/interconnect.py", line 503, in setup
+    self._socket.bind(self._address)
+  File "zmq/backend/cython/socket.pyx", line 487, in zmq.backend.cython.socket.Socket.bind (zmq/backend/cython/socket.c:5156)
+  File "zmq/backend/cython/checkrc.pxd", line 25, in zmq.backend.cython.checkrc._check_rc (zmq/backend/cython/socket.c:7535)
+zmq.error.ZMQError: Address already in use
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.5/threading.py", line 914, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.5/threading.py", line 862, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/lib/python3/dist-packages/sawtooth_validator/networking/interconnect.py", line 507, in setup
+    str(e)))
+sawtooth_validator.exceptions.LocalConfigurationError: Can't bind to tcp://0.0.0.0:4004: Address already in use
+
+[32m[2018-11-15 23:39:47.090 INFO     core][0m [37mremaining threads: _ContextReader (_ContextReader)[0m
+[32m[2018-11-15 23:39:47.091 INFO     core][0m [37mAll threads have been stopped and joined[0m

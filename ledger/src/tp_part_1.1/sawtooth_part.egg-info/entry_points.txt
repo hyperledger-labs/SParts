@@ -1,0 +1,4 @@
+[console_scripts]
+pt = sawtooth_part.part_cli:main_wrapper
+tp_part = sawtooth_part.processor.main:main
+

@@ -16,7 +16,15 @@
 #!flask/bin/python
 import subprocess, shlex, re
 from flask import Flask, jsonify, make_response, request, json
-import sawtooth_signing.secp256k1_signer as signing
+# import sawtooth_signing.secp256k1_signer as signing
+#
+from sawtooth_signing import create_context
+from sawtooth_signing import CryptoFactory
+from sawtooth_signing import ParseError
+from sawtooth_signing.secp256k1 import Secp256k1PublicKey
+from sawtooth_signing.secp256k1 import Secp256k1PrivateKey
+#
+
 import uuid
 from random import randint
 app = Flask(__name__)
@@ -257,12 +265,16 @@ def create_organization():
         if not request.json or not 'private_key' in request.json or not 'public_key' in request.json:
             return  ret_exception_msg('Invalid JSON')
         uuid = request.json['organization']['uuid']
+        uuid = format_str(uuid)
         alias = request.json['organization']['alias']
+        alias = format_str(alias)
         
         name = request.json['organization']['name']
         name = format_str(name) 
         type = request.json['organization']['type']
+        type = format_str(type)
         description = request.json['organization']['description']
+        description = format_str(description)
         url = request.json['organization']['url']
         url = format_str(url)
         
@@ -566,16 +578,14 @@ def sparts_auth():
             return ret_exception_msg('Invalid JSON')
         
         uuid = get_uuid()
-        print(request.json)
         private_key = request.json['privatekey']
         public_key = request.json['publickey']
-        print(public_key)
         output = ''
-        if len(private_key) == 51 and len(public_key) == 66:
+        if len(private_key) == 64 and len(public_key) == 66:
+            
             signature = get_signature(uuid, private_key, 'wif')
             verify = verify_signature(uuid, signature, public_key)
-            
-            
+            print("Verify Sign: " + str(verify)) 
             if str(verify) == 'True':
                 cmd = "user retrieve " + public_key
                 cmd = shlex.split(cmd)
@@ -591,7 +601,6 @@ def sparts_auth():
                     authorized=userinfo['authorized']
                     
                     assignedrole=userinfo['role']
-                    print(request.json["allowedrole"])
                     if str(authorized) == 'allow':
                         for i in request.json["allowedrole"]:
                             if str(i['role']) == str(assignedrole):          
@@ -617,12 +626,15 @@ def sparts_auth():
 @app.route('/ledger/api/v1/keys', methods=['GET']) 
 def get_keys():
     # Get public and private key
-    privkey = signing.generate_privkey()
-    pubkey = signing.generate_pubkey(privkey)
+    # privkey = signing.generate_privkey()
+    # pubkey = signing.generate_pubkey(privkey)
+    context = create_context('secp256k1')
+    privkey = context.new_random_private_key()
+    pubkey = context.get_public_key(privkey)
     userKeyJSON = "{}"
     keys = json.loads(userKeyJSON)
-    keys["public_key"] = pubkey
-    keys["private_key"] = privkey
+    keys["public_key"] = pubkey.as_hex()
+    keys["private_key"] = privkey.as_hex()
     userKeyJSON = json.dumps(keys)
     return userKeyJSON
     
@@ -659,14 +671,23 @@ def ret_access_denied__msg(message):
     return expJson 
 
 def get_signature(message, private_key, privkey_format='wif'):
-    signature = signing.sign(message, private_key, privkey_format)
+    context = create_context('secp256k1')
+    factory = CryptoFactory(context)
+    
+    privkey = Secp256k1PrivateKey.from_hex(private_key)  
+    signer = factory.new_signer(privkey)
+    signature = signer.sign(message.encode())    
     return signature
 
 
 def verify_signature(message, signature, public_key):
-    # Signature verification based on message and public key
-    verifystatus = signing.verify(message, signature, public_key)
-    return verifystatus
+    try:
+        context = create_context('secp256k1')
+        pubkey = Secp256k1PublicKey.from_hex(public_key)
+        result = context.verify(signature,message.encode(),pubkey)
+        return result 
+    except Exception:
+        return False
 
 
 def ret_auth_msg(status, message, auth, role):
